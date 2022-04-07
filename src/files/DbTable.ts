@@ -1,5 +1,12 @@
 import { colType, DbInvalidCallError, DbKeyQueryable, DbMetadataInfo, DbPKQueryable, DbResultError, Fetchable, Fetcher, FkType } from "..";
 
+type NonFunctionPropertyNames<T> = {
+    // eslint-disable-next-line @typescript-eslint/ban-types
+    [K in keyof T]: T[K] extends Function ? never : K
+}[keyof T];
+type NonFunctionProperties<T> = Pick<T, NonFunctionPropertyNames<T>>;
+type OwnProerties<T> = keyof NonFunctionProperties<Omit<T, keyof ADbTableBase>>;
+
 export abstract class ADbTableBase {
     #prefetch: Promise<this> = Promise.resolve(this);
     #prefetch_completed = false;
@@ -118,6 +125,19 @@ export abstract class ADbTableBase {
         if(save)
             return that.save().then((success:boolean) => success ? that : null);
         return that;
+    }
+
+    import<T extends ADbTableBase>(this: T|RowSet<T>, values: Partial<T>, keys?: OwnProerties<T>[]): T {
+        (keys ?? <(keyof T)[]>Object.keys(values)).forEach((k) => {
+            if(values[k] !== undefined)
+                // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+                this[k] = values[k]!;
+        });
+        return this;
+    }
+
+    export<T extends ADbTableBase>(this: T, keys: OwnProerties<T>[], into: Partial<T> = {}): Partial<T> {
+        return keys.reduce((r, k) => r[k] = this[k], into);
     }
 
     /* #region rowset */
