@@ -117,9 +117,9 @@ test("Chain FK entry from remote", async() => {
     expect(b?.ownerName).toBe('Hans Hugo');
 });
 
-test("filter on rowset", async () => {
+test("filter (async) on rowset", async () => {
     const r = await Company.all()
-    const f = await r?.filter((elem) => elem.value === 42)
+    const f = await r?.filter(async (elem) => elem.value === 42)
     expect(f?.length).toBe(3);
 })
 
@@ -134,6 +134,13 @@ test("map on rowset", async () => {
     expect(m?.[0]).toBeGreaterThan(1);
 })
 
+test("map (async) on rowset", async () => {
+    const r = await Company.all();
+    const m = r?.map(async (elem) => elem.value);
+    expect(m).toBeInstanceOf(Promise);
+    expect((await m)?.[0]).toBeGreaterThan(1);
+})
+
 test("chain map on rowset", async () => {
     const r = await Company.all().map((elem) => elem.value);
     expect(r?.[0]).toBeGreaterThan(1);
@@ -143,6 +150,13 @@ test("find on rowset", async () => {
     const r = await Company.all();
     const m = r?.find((elem) => elem.value === 42);
     expect(m?.value).toBeGreaterThan(1);
+})
+
+test("find (async) on rowset", async () => {
+    const r = await Company.all();
+    const m = r?.find(async (elem) => elem.value === 42, true);
+    expect(m).toBeInstanceOf(Promise);
+    expect((await m)?.value).toBeGreaterThan(1);
 })
 
 test("chain find on rowset", async () => {

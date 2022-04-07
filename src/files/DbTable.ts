@@ -32,8 +32,8 @@ export abstract class ADbTableBase {
         DbMetadataInfo.getDbConn(<any>this.constructor).reindex(this.constructor.name, this);
     }
 
-    toJSON<T extends ADbTableBase>(this: T): Partial<T>
-    toJSON<T extends ADbTableBase>(this: RowSet<T>): Partial<T>[]
+    toJSON<T extends ADbTableBase>(this: T): Partial<T>;
+    toJSON<T extends ADbTableBase>(this: RowSet<T>): Partial<T>[];
     toJSON() {
         if(this.#isRowset) {
             return (<RowSet<this>>this).map((x) => x.toJSON());
@@ -104,8 +104,8 @@ export abstract class ADbTableBase {
         return await DbMetadataInfo.getDbConn(<new(...args:any[]) => this>this.constructor).upsert(this.constructor.name, this, false, false, false);
     }
 
-    static fromObject<T extends ADbTableBase>(this: { new(...args:any[]): T}, data: Partial<T>, save: true, pk?: string): Promise<T | null>
-    static fromObject<T extends ADbTableBase>(this: { new(...args:any[]): T}, data: Partial<T>, save?: false, pk?: string): T 
+    static fromObject<T extends ADbTableBase>(this: { new(...args:any[]): T}, data: Partial<T>, save: true, pk?: string): Promise<T | null>;
+    static fromObject<T extends ADbTableBase>(this: { new(...args:any[]): T}, data: Partial<T>, save?: false, pk?: string): T;
     static fromObject<T extends ADbTableBase>(this: { new(...args:any[]): T}, data: Partial<T>, save = false, pk?: string ): T {
         const that = (<any>this).new();
         Object.entries(DbMetadataInfo.inheritInfo[this.name]).filter(([, meta]) => ![colType.fk, colType.pk].includes(meta.type)).forEach(([key]) => {
@@ -124,7 +124,7 @@ export abstract class ADbTableBase {
     static all<T extends ADbTableBase>(this: { new(...args:any[]): T }, archive?: boolean, history?: false):Fetchable<RowSet<T>>;
     static all<T extends ADbTableBase>(this: { new(...args:any[]): T }, archive: false, history: boolean): Fetchable<RowSet<T>>;
     static all<T extends ADbTableBase>(this: { new(...args:any[]): T }, archive = false, history = false): Fetchable<RowSet<T>> {
-        const queryRes = DbMetadataInfo.getDbConn(this, archive ? 'archive' : (history? 'history': 'data')).all(this.name)
+        const queryRes = DbMetadataInfo.getDbConn(this, archive ? 'archive' : (history? 'history': 'data')).all(this.name);
         return (this as any).__makeDbRowSet(queryRes, archive, history);
     }
 
@@ -133,8 +133,8 @@ export abstract class ADbTableBase {
         return (<any>this.constructor).__makeDbRowSet(pr, this.#archived, this.#history);
     }
 
-    map<T extends ADbTableBase, R>(this: Fetchable<RowSet<T>>, cb: (elem: T, index: number, all: RowSet<T>) => R): Promise<R[]>
-    map<T extends ADbTableBase, R>(this: RowSet<T>, cb: (elem: T, index: number, all: RowSet<T>) => R): R[] 
+    map<T extends ADbTableBase, R>(this: Fetchable<RowSet<T>>, cb: (elem: T, index: number, all: RowSet<T>) => R|Promise<R>): R[]|Promise<R[]>;
+    map<T extends ADbTableBase, R>(this: RowSet<T>, cb: (elem: T, index: number, all: RowSet<T>) => R|Promise<R>): R[];
     map<T extends ADbTableBase, R>(this: RowSet<T> | Fetchable<RowSet<T>>, cb: (elem: T, index: number, all: RowSet<T>) => R): R[] | Promise<R[]> {
         if(!this.#isRowset)
             throw new DbInvalidCallError('TypeDb: map can only be called on RowSets');
@@ -143,6 +143,8 @@ export abstract class ADbTableBase {
             for(let i = 0; i < this.length; i++) {
                 result.push(cb(this[i], i, this));
             }
+            if(result[0] instanceof Promise)
+                return Promise.all(result);
             return result;
         } else {
             return (<Promise<RowSet<T>>>this.#prefetch).then((that) => {
@@ -150,42 +152,45 @@ export abstract class ADbTableBase {
                 for(let i = 0; i < that.length; i++) {
                     result.push(cb(that[i], i, that));
                 }
+                if(result[0] instanceof Promise)
+                    return Promise.all(result);
                 return result;
-            })
-        }
-    }
-
-    find<T extends ADbTableBase>(this: RowSet<T>, cb: (elem: T, index: number, all: RowSet<T>) => boolean): T|undefined;
-    find<T extends ADbTableBase>(this: Fetchable<RowSet<T>>, cb: (elem: T, index: number, all: RowSet<T>) => boolean): Promise<T|undefined>;
-    find<T extends ADbTableBase>(this: RowSet<T> | Fetchable<RowSet<T>>, cb: (elem: T, index: number, all: RowSet<T>) => boolean): T|undefined| Promise<T|undefined> {
-        if(!this.#isRowset)
-            throw new DbInvalidCallError('TypeDb: find can only be called on RowSets');
-        if(this.#prefetch_completed) {
-            for(let i = 0; i < this.length; i++) {
-                if(cb(this[i], i, this))
-                    return this[i];
-            }
-            return undefined
-        } else {
-            return (<Promise<RowSet<T>>>this.#prefetch).then((that) => {
-                for(let i = 0; i < that.length; i++) {
-                    if(cb(that[i], i, that))
-                        return that[i];
-                }
-                return undefined
             });
         }
     }
 
-    filter<T extends ADbTableBase>(this: RowSet<T> | Fetchable<RowSet<T>>, cb: (elem: T, index: number, all: RowSet<T>) => boolean): Fetchable<RowSet<T>>{
+    find<T extends ADbTableBase>(this: RowSet<T>|Fetchable<RowSet<T>>, cb: (elem: T, index: number, all: RowSet<T>) => Promise<boolean>, async: true): Promise<T|undefined>;
+    find<T extends ADbTableBase>(this: RowSet<T>, cb: (elem: T, index: number, all: RowSet<T>) => boolean, async?: false): T|undefined;
+    find<T extends ADbTableBase>(this: Fetchable<RowSet<T>>, cb: (elem: T, index: number, all: RowSet<T>) => boolean, async?: false): T|undefined|Promise<T|undefined>;
+    find<T extends ADbTableBase>(this: RowSet<T> | Fetchable<RowSet<T>>, cb: (elem: T, index: number, all: RowSet<T>) => boolean|Promise<boolean>, async = false): T|undefined| Promise<T|undefined> {
+        if(!this.#isRowset)
+            throw new DbInvalidCallError('TypeDb: find can only be called on RowSets');
+        if(!async && this.#prefetch_completed) {
+            for(let i = 0; i < this.length; i++) {
+                if(cb(this[i], i, this))
+                    return this[i];
+            }
+            return undefined;
+        } else {
+            return (<Promise<RowSet<T>>>this.#prefetch).then(async (that) => {
+                for(let i = 0; i < that.length; i++) {
+                    if(await cb(that[i], i, that))
+                        return that[i];
+                }
+                return undefined;
+            });
+        }
+    }
+
+    filter<T extends ADbTableBase>(this: RowSet<T> | Fetchable<RowSet<T>>, cb: (elem: T, index: number, all: RowSet<T>) => boolean|Promise<boolean>): Fetchable<RowSet<T>>{
         if(!this.#isRowset)
             throw new DbInvalidCallError('TypeDb: filter can only be called on RowSets');   
         const result = <T> new (<any>this.constructor);
         result.#isRowset = true;
-        result.#prefetch = (<Promise<RowSet<T>>>this.#prefetch).then((that) => {
+        result.#prefetch = (<Promise<RowSet<T>>>this.#prefetch).then(async (that) => {
             let j = 0;
             for(let i = 0; i < that.length; i++) {
-                if(cb(that[i], i, that)) {
+                if(await cb(that[i], i, that)) {
                     Object.defineProperty(result, (j++).toString(), { value: that[i], writable: false });
                 }
             }
@@ -238,7 +243,7 @@ export abstract class ADbTableBase {
     }
 
     public get __isHistory(): boolean {
-        return this.#history
+        return this.#history;
     }
 
 
@@ -301,7 +306,7 @@ export abstract class ADbTableBase {
                 res.__base.#prefetch = res.__base.#prefetch.then((that) => {
                     this.#fkcache[key.substring(1)] = that;
                     return <any>that;
-                })
+                });
                 return res;
             } else {
                 const remotePK = remoteClass.__PK;
@@ -309,7 +314,7 @@ export abstract class ADbTableBase {
                 res.__base.#prefetch = res.__base.#prefetch.then((that) => {
                     this.#fkcache[key.substring(1)] = that;
                     return that;
-                })
+                });
                 return res;
             }
         }
@@ -360,7 +365,7 @@ export abstract class ADbTableBase {
             }
             that.#prefetch_completed = true;
             return that;
-        })
+        });
         return <Fetchable<RowSet<T>>>new Fetcher(that);
     }
 }
