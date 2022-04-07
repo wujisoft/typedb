@@ -303,3 +303,12 @@ test('get history', async() => {
     const rows = await Company.companyName.history.find('SomeCompany');
     console.log(rows?.toJSON());
 })
+
+test('bug: delete FK entry and fetch afterwards', async() => {
+    const a = await Company.companyName.get('FKCompany');
+    const owner = await a?.$NewOwner;
+    await a?.delete();
+    (await owner?.$MyCompany)?.toJSON();
+    console.log((await owner?.$MyCompany)?.toJSON());
+    
+});

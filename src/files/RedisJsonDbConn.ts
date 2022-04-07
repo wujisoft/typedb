@@ -1,6 +1,6 @@
 import { ADbTableBase, colType, DbLockingError, DbMetadataInfo, FkType, IDbConn } from "..";
 import { v4 as uuid } from 'uuid';
-import { createClient } from 'redis'
+import { createClient } from 'redis';
 
 export class RedisJsonDbConn implements IDbConn {
     prefix = () => '';
@@ -82,7 +82,7 @@ export class RedisJsonDbConn implements IDbConn {
                             multi = multi.hDel(prefix + 'UINDEX/'+ table + '/' + element.propertyKey, orig[element.propertyKey]);
                         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
                         if(element.type === colType.fk && element.fkType! === FkType.remote)
-                            multi = multi.hDel(prefix + 'INDEX/' + table + '/' + element.propertyKey.substring(1), orig[pk] + String.fromCharCode(0) + orig[element.propertyKey.substring(1) + '_ID']);
+                            multi = multi.hDel(prefix + 'INDEX/' + table + '/' + element.propertyKey.substring(1) + '_ID', orig[pk] + String.fromCharCode(0) + orig[element.propertyKey.substring(1) + '_ID']);
                     });
                     multi = multi.hDel(prefix + 'TABLE/' + table, orig[pk]);
                     return await multi.exec();
@@ -130,7 +130,7 @@ export class RedisJsonDbConn implements IDbConn {
                                     multi = multi.hDel(prefix + 'UINDEX/'+ table + '/' + element.propertyKey, orig[element.propertyKey]);
                                 // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
                                 if(element.type === colType.fk && element.fkType! === FkType.remote)
-                                    multi = multi.hDel(prefix + 'INDEX/' + table + '/' + element.propertyKey.substring(1), orig[pk] + String.fromCharCode(0) + orig[element.propertyKey.substring(1) + '_ID']);
+                                    multi = multi.hDel(prefix + 'INDEX/' + table + '/' + element.propertyKey.substring(1) + '_ID', orig[pk] + String.fromCharCode(0) + orig[element.propertyKey.substring(1) + '_ID']);
                             }
                             if(element.type === colType.key && (<any>obj)[element.propertyKey] !== undefined) 
                                 multi = multi.hSet(prefix + 'INDEX/' + table + '/' + element.propertyKey, (<any>obj)[pk] + String.fromCharCode(0) + (<any>obj)[element.propertyKey], (<any>obj)[pk]);
@@ -149,7 +149,7 @@ export class RedisJsonDbConn implements IDbConn {
                 });
                 return true;
             // eslint-disable-next-line no-empty
-            } catch(e) { console.log('ERROR:', e) }
+            } catch(e) { console.log('ERROR:', e); }
         } while(retry-- > 0);
         throw new DbLockingError('TypeDB: Optimistic locking failed');
     }
@@ -184,7 +184,7 @@ export class RedisJsonDbConn implements IDbConn {
                                     prefix + 'INDEX/' + table + '/' + element.propertyKey.substring(1) + '_ID', 
                                     (<any>obj)[pk] + String.fromCharCode(0) + (<any>obj)[element.propertyKey.substring(1) + '_ID'], 
                                     (<any>obj)[pk]);    
-                        })
+                        });
                     }
                     await multi.exec();
                 });
