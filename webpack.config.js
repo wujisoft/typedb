@@ -37,7 +37,10 @@ module.exports = {
         minimizer: [new TerserPlugin({
             terserOptions: {
                 compress: true,
-                module: true
+                module: true,
+                mangle: {
+                    keep_classnames: /ADbTableBase/
+                }
             },
             extractComments: {
                 filename: (fd) => `${fd.filename}.txt`,
