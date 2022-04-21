@@ -294,21 +294,29 @@ test('query archived data', async() => {
 
 test('unarchive entry', async() => {
     const row = await Company.companyName.archive.get('TestCompany');
-
-    console.log(row?.__isArchived, row?.__raw);
     expect(await row?.unarchive()).toBeTruthy();
 });
 
 test('get history', async() => {
     const rows = await Company.companyName.history.find('SomeCompany');
-    console.log(rows?.toJSON());
+    expect(rows?.[0]?.companyName).toBe('SomeCompany');
 })
+
+
+test('bug: unlink FKs', async() => {
+    let a = await Company.companyName.get('FKCompany');
+    const owner = await a?.$NewOwner;
+    a!.NewOwner = <any>null;
+    await a?.save();
+    a = await Company.companyName.get('FKCompany');
+    expect(await a?.$NewOwner).toBeNull();
+    a!.NewOwner = <any>owner;
+    await a?.save();
+});
 
 test('bug: delete FK entry and fetch afterwards', async() => {
     const a = await Company.companyName.get('FKCompany');
     const owner = await a?.$NewOwner;
     await a?.delete();
-    (await owner?.$MyCompany)?.toJSON();
-    console.log((await owner?.$MyCompany)?.toJSON());
-    
+    expect((await owner?.$MyCompany)?.length).toBe(0);
 });

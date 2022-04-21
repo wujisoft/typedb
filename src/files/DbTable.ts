@@ -348,6 +348,8 @@ export abstract class ADbTableBase {
         const meta = DbMetadataInfo.inheritInfo[this.constructor.name][key];
         if(meta.fkType === FkType.local)
             throw new DbInvalidCallError('TypeDb: ForeignKeys need to be set on remote end of relation');
+        if(value === undefined || value === null)
+            return (<any>this)[key.substring(1) + '_ID'] = undefined;
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         const remoteClass = <any>DbMetadataInfo.classinfo[meta.fkTable!].constructor;
         const remotePK = remoteClass.__PK;
