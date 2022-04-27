@@ -127,12 +127,16 @@ export abstract class ADbTableBase {
         return that;
     }
 
-    import<T extends ADbTableBase>(this: T|RowSet<T>, values: Partial<T>, keys?: OwnProerties<T>[]): T {
+    import<T extends ADbTableBase>(this: T|RowSet<T>, values: Partial<T>, keys?: OwnProerties<T>[], save?: false): T;
+    import<T extends ADbTableBase>(this: T|RowSet<T>, values: Partial<T>, keys?: OwnProerties<T>[], save?: true): Promise<boolean>;
+    import<T extends ADbTableBase>(this: T|RowSet<T>, values: Partial<T>, keys?: OwnProerties<T>[], save = false): T | Promise<boolean> {
         (keys ?? <(keyof T)[]>Object.keys(values)).forEach((k) => {
             if(values[k] !== undefined)
                 // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
                 this[k] = values[k]!;
         });
+        if(save)
+            return this.save();
         return this;
     }
 
