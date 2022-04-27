@@ -35,7 +35,7 @@ export class DbKeyQueryable<TTable extends ADbTableBase, TColumn> extends DbQuer
         this.archivemode = false;
         const query = db.findIndex(this.cls.name, this.prop, search === undefined ? undefined :(<any>search).toString())
         .then(x => db.get(this.cls.name, x))
-        .then(x => (x.length !== 1) ? Promise.reject(new DbResultError('TypeDB: found more than one record for table ' + this.cls.name + ' search: ' + search)): x[0])
+        .then(x => (x.length !== 1) ? Promise.reject(new DbResultError('TypeDB: found more than one record for table ' + this.cls.name + ' search: ' + search)): x[0]);
         return (<any>this.cls).__makeDbObj(query, archive, this.historymode);
     }
 }
@@ -93,7 +93,7 @@ export class DbPKQueryable<TTable extends ADbTableBase, TColumn> extends DbQuery
         const db = DbMetadataInfo.getDbConn(this.cls,this.archivemode ? 'archive' : 'data');
         const archive = this.archivemode; 
         this.archivemode = false;
-        const query = Promise.resolve(search).then(search => db.get(this.cls.name, (<any[]>search).filter(x => x).filter((v,i,a) => (a.indexOf(v) === i)).map((x:any) => (<any>x).toString())))
+        const query = Promise.resolve(search).then(search => db.get(this.cls.name, (<any[]>search).filter(x => x).filter((v,i,a) => (a.indexOf(v) === i)).map((x:any) => (<any>x).toString())));
         return (<any>this.cls).__makeDbRowSet(query, archive);
     }
 }

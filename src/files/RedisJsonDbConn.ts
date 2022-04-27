@@ -65,9 +65,9 @@ export class RedisJsonDbConn implements IDbConn {
         const prefix = this.prefix();
         const pk = (<any>obj.constructor).__PK;
         const ih = Object.values(DbMetadataInfo.inheritInfo[obj.constructor.name]);
-        const idx = ih.filter(x => x.type === colType.key).map(x => prefix + 'INDEX/' + table + '/' + x.propertyKey);
+        const idx = ih.filter(x => x.type === colType.key || x.type === colType.computed).map(x => prefix + 'INDEX/' + table + '/' + x.propertyKey);
         const fks = ih.filter(x => x.type === colType.fk && x.fkType === FkType.remote).map(x => prefix + 'INDEX/' + table + '/' + x.propertyKey.substring(1) + '_ID');
-        const uidx = ih.filter(x => x.type === colType.unique).map(x => prefix + 'UINDEX/' + table + '/' + x.propertyKey);
+        const uidx = ih.filter(x => x.type === colType.unique || x.type === colType.computedUnique).map(x => prefix + 'UINDEX/' + table + '/' + x.propertyKey);
         let retry = 100;
         do {
             try {
@@ -76,9 +76,9 @@ export class RedisJsonDbConn implements IDbConn {
                     const orig = this.decode(await isoCli.hGet(prefix + 'TABLE/' + table, (<any>obj)[pk]));
                     let multi = isoCli.multi();
                     ih.forEach(element => {
-                        if(element.type === colType.key) 
+                        if(element.type === colType.key || element.type === colType.computed) 
                             multi = multi.hDel(prefix + 'INDEX/' + table + '/' + element.propertyKey, orig[pk] + String.fromCharCode(0) + orig[element.propertyKey]);
-                        if(element.type === colType.unique)
+                        if(element.type === colType.unique || element.type === colType.computedUnique)
                             multi = multi.hDel(prefix + 'UINDEX/'+ table + '/' + element.propertyKey, orig[element.propertyKey]);
                         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
                         if(element.type === colType.fk && element.fkType! === FkType.remote)
@@ -101,9 +101,9 @@ export class RedisJsonDbConn implements IDbConn {
         const prefix = this.prefix();
         const pk = (<any>obj.constructor).__PK;
         const ih = Object.values(DbMetadataInfo.inheritInfo[obj.constructor.name]);
-        const idx = ih.filter(x => history ? [colType.key, colType.unique, colType.pk].includes(x.type) : x.type === colType.key ).map(x => 'INDEX/' + table + '/' + x.propertyKey);
+        const idx = ih.filter(x => history ? [colType.key, colType.computed, colType.unique, colType.computedUnique, colType.pk].includes(x.type) : x.type === colType.key ).map(x => 'INDEX/' + table + '/' + x.propertyKey);
         const fks = ih.filter(x => x.type === colType.fk && x.fkType === FkType.remote).map(x => prefix + 'INDEX/' + table + '/' + x.propertyKey.substring(1) + '_ID');
-        const uidx = history ? [] : ih.filter(x => x.type === colType.unique).map(x => prefix + 'UINDEX/' + table + '/' + x.propertyKey);
+        const uidx = history ? [] : ih.filter(x => x.type === colType.unique || x.type === colType.computedUnique).map(x => prefix + 'UINDEX/' + table + '/' + x.propertyKey);
         let retry = 100;
         do {
             try {
@@ -116,7 +116,7 @@ export class RedisJsonDbConn implements IDbConn {
                     if(history) {
                         const newPK = uuid();
                         ih.forEach(element => {
-                            if([colType.key, colType.unique, colType.pk].includes(element.type) && (<any>obj)[element.propertyKey] !== undefined) {
+                            if([colType.key, colType.computed, colType.unique, colType.computedUnique, colType.pk].includes(element.type) && (<any>obj)[element.propertyKey] !== undefined) {
                                 multi = multi.hSet(prefix + 'INDEX/' + table + '/' + element.propertyKey, newPK + String.fromCharCode(1) + (<any>obj)[pk] + String.fromCharCode(0) + (<any>obj)[element.propertyKey], newPK);
                             }
                         });
@@ -124,17 +124,17 @@ export class RedisJsonDbConn implements IDbConn {
                     } else {
                         ih.forEach(element => {
                             if(orig) {
-                                if(element.type === colType.key) 
+                                if(element.type === colType.key || element.type === colType.computed) 
                                     multi = multi.hDel(prefix + 'INDEX/' + table + '/' + element.propertyKey, orig[pk] + String.fromCharCode(0) + orig[element.propertyKey]);
-                                if(element.type === colType.unique)
+                                if(element.type === colType.unique || element.type === colType.computedUnique)
                                     multi = multi.hDel(prefix + 'UINDEX/'+ table + '/' + element.propertyKey, orig[element.propertyKey]);
                                 // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
                                 if(element.type === colType.fk && element.fkType! === FkType.remote)
                                     multi = multi.hDel(prefix + 'INDEX/' + table + '/' + element.propertyKey.substring(1) + '_ID', orig[pk] + String.fromCharCode(0) + orig[element.propertyKey.substring(1) + '_ID']);
                             }
-                            if(element.type === colType.key && (<any>obj)[element.propertyKey] !== undefined) 
+                            if((element.type === colType.key || element.type === colType.computed) && (<any>obj)[element.propertyKey] !== undefined) 
                                 multi = multi.hSet(prefix + 'INDEX/' + table + '/' + element.propertyKey, (<any>obj)[pk] + String.fromCharCode(0) + (<any>obj)[element.propertyKey], (<any>obj)[pk]);
-                            if(element.type === colType.unique && (<any>obj)[element.propertyKey] !== undefined)
+                            if((element.type === colType.unique || element.type === colType.computedUnique) && (<any>obj)[element.propertyKey] !== undefined)
                                 multi = multi.hSet(prefix + 'UINDEX/'+ table + '/' + element.propertyKey, (<any>obj)[element.propertyKey], (<any>obj)[pk]);
                             // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
                             if(element.type === colType.fk && element.fkType! === FkType.remote && (<any>obj)[element.propertyKey.substring(1) + '_ID'] !== undefined)
@@ -158,9 +158,9 @@ export class RedisJsonDbConn implements IDbConn {
         const prefix = this.prefix();
         const pk = DbMetadataInfo.classinfo[ctr.name].PK;
         const ih = Object.values(DbMetadataInfo.inheritInfo[ctr.name]);
-        const idx = ih.filter(x => x.type === colType.key).map(x => prefix + 'INDEX/' + table + '/' + x.propertyKey);
+        const idx = ih.filter(x => x.type === colType.key || x.type === colType.computed).map(x => prefix + 'INDEX/' + table + '/' + x.propertyKey);
         const fks = ih.filter(x => x.type === colType.fk && x.fkType === FkType.remote).map(x => prefix + 'INDEX/' + table + '/' + x.propertyKey.substring(1) + '_ID');
-        const uidx = ih.filter(x => x.type === colType.unique).map(x => prefix + 'UINDEX/' + table + '/' + x.propertyKey);
+        const uidx = ih.filter(x => x.type === colType.unique || x.type === colType.computedUnique).map(x => prefix + 'UINDEX/' + table + '/' + x.propertyKey);
         let retry = 100;
         do {
             try {
@@ -174,9 +174,9 @@ export class RedisJsonDbConn implements IDbConn {
                     const data = <any>await isoCli.hGetAll(prefix + 'TABLE/' + table);
                     for(const obj of data) {
                         ih.forEach(element => {
-                            if(element.type === colType.key && (<any>obj)[element.propertyKey] !== undefined) 
+                            if((element.type === colType.key || element.type === colType.computed) && (<any>obj)[element.propertyKey] !== undefined) 
                                 multi = multi.hSet(prefix + 'INDEX/' + table + '/' + element.propertyKey, obj[pk] + String.fromCharCode(0) + obj[element.propertyKey], obj[pk]);
-                            if(element.type === colType.unique && (<any>obj)[element.propertyKey] !== undefined)
+                            if((element.type === colType.unique || element.type === colType.computedUnique) && (<any>obj)[element.propertyKey] !== undefined)
                                 multi = multi.hSet(prefix + 'UINDEX/'+ table + '/' + element.propertyKey, obj[element.propertyKey], obj[pk]);
                             // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
                             if(element.type === colType.fk && element.fkType! === FkType.remote && (<any>obj)[element.propertyKey.substring(1) + '_ID'] !== undefined)

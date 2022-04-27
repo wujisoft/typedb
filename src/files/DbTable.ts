@@ -247,8 +247,20 @@ export abstract class ADbTableBase {
         return this.#data_modified;
     }
 
+    public get __computedData() {
+        return Object.fromEntries(
+            Object.entries(DbMetadataInfo.inheritInfo[this.constructor.name])
+                .filter(([, info]) => [colType.computed, colType.computedUnique].includes(info.type))
+                // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+                .map(([col, info]) => [col, info.func!(this)])
+            );
+    }
+
     public get __raw() {
-        return this.#data;
+        return {
+            ...this.#data,
+            ...this.__computedData
+        };
     }
 
     public get __historyTimestamp(): number {

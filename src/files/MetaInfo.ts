@@ -1,12 +1,16 @@
 import { ADbTableBase, DbConfigError, DbKeyQueryable, DbPKQueryable, DbUniqueQueryable, IDbConn } from "..";
 
 
+
+
 export enum colType {
     col,
-    key, 
+    key,
     unique,
     fk,
-    pk
+    pk,
+    computed,
+    computedUnique
 }
 
 export const enum FkType {
@@ -21,6 +25,7 @@ export interface MetaInfoEntry {
     fkTable?: string;
     fkName?: string;
     fkType?: FkType;
+    func?: (obj: any) => any;
 }
 
 export class DbMetadataInfo {
@@ -61,36 +66,42 @@ export class DbMetadataInfo {
     private static initField<T extends ADbTableBase>(target: T, meta: MetaInfoEntry) {
         if(meta.type === colType.fk) {
             Object.defineProperty(target, meta.propertyKey, {
-                get: function () { return this.__getFKProperty(meta.propertyKey) }
+                get: function () { return this.__getFKProperty(meta.propertyKey); }
             });
             if(meta.fkType === FkType.remote) {
                 Object.defineProperty(target, meta.propertyKey.substring(1), {
-                    set: function (value) { this.__setFKProperty(meta.propertyKey, value) },
-                    get: function () { return this.__getFKCacheProperty(meta.propertyKey.substring(1))}
+                    set: function (value) { this.__setFKProperty(meta.propertyKey, value); },
+                    get: function () { return this.__getFKCacheProperty(meta.propertyKey.substring(1)); }
                 });
                 Object.defineProperty(target, meta.propertyKey.substring(1) + '_ID', {
-                    get: function () { return this.__getProperty(meta.propertyKey.substring(1) + '_ID') },
-                    set: function (value) { this.__setProperty(meta.propertyKey.substring(1) + '_ID', value) }
+                    get: function () { return this.__getProperty(meta.propertyKey.substring(1) + '_ID'); },
+                    set: function (value) { this.__setProperty(meta.propertyKey.substring(1) + '_ID', value); }
                 });            
             } else {
                 Object.defineProperty(target, meta.propertyKey.substring(1), {
-                    get: function () { return this.__getFKCacheProperty(meta.propertyKey.substring(1)) }
+                    get: function () { return this.__getFKCacheProperty(meta.propertyKey.substring(1)); }
                 });                
             }
+        } else if(meta.type === colType.computed || meta.type === colType.computedUnique) {
+            Object.defineProperty(target, meta.propertyKey, {
+                // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+                get: () => meta.func!(this)
+            });
         } else {
             Object.defineProperty(target, meta.propertyKey, {
-                get: function () { return this.__getProperty(meta.propertyKey) },
-                set: function (value) { this.__setProperty(meta.propertyKey, value) }
+                get: function () { return this.__getProperty(meta.propertyKey); },
+                set: function (value) { this.__setProperty(meta.propertyKey, value); },
+                enumerable: true
             });
         }
-        if(meta.type === colType.key) {
+        if(meta.type === colType.key || meta.type === colType.computed) {
             (<any>target.constructor)[meta.propertyKey] = new DbKeyQueryable(<{new(...args:any[]):ADbTableBase}>target.constructor, meta.propertyKey);
         }
         if(meta.type === colType.pk) {
             (<any>target.constructor)[meta.propertyKey] = new DbPKQueryable(<{new(...args:any[]):ADbTableBase}>target.constructor, meta.propertyKey);
             Object.defineProperty(target.constructor, '__PK', { value: meta.propertyKey, writable: false });
         }
-        if(meta.type === colType.unique) {
+        if(meta.type === colType.unique || meta.type === colType.computedUnique) {
             (<any>target.constructor)[meta.propertyKey] = new DbUniqueQueryable(<{new(...args:any[]):ADbTableBase}>target.constructor, meta.propertyKey);
         }
         if(meta.type === colType.fk && meta.fkType === FkType.remote) {
@@ -124,25 +135,25 @@ export class DbMetadataInfo {
 export function DbCol() {
     return <T extends ADbTableBase> (target: T, propertyKey: string) => {
         DbMetadataInfo.entrys.push({target, propertyKey, type: colType.col });
-    }
+    };
 }
 
 export function DbKey() {
     return <T extends ADbTableBase> (target: T, propertyKey: string) => {
         DbMetadataInfo.entrys.push({target, propertyKey, type: colType.key });
-    }
+    };
 }
 
 export function DbPK() {
     return <T extends ADbTableBase> (target: T, propertyKey: string) => {
         DbMetadataInfo.entrys.push({target, propertyKey, type: colType.pk });
-    }
+    };
 }
 
 export function DbUnique() {
     return <T extends ADbTableBase> (target: T, propertyKey: string) => {
         DbMetadataInfo.entrys.push({target, propertyKey, type: colType.unique });
-    }
+    };
 }
 
 export function DbRow(params: {dbconn?: string, archivedb?: string, archivemode?: "protected" | "active" | "none", historydb?: string} = {}) {
@@ -155,7 +166,7 @@ export function DbRow(params: {dbconn?: string, archivedb?: string, archivemode?
                 historydb: params.historydb
             };
             return constructor;
-        }
+        };
 }
 
 export function FK(fktype: FkType.remote, className?: string): <T extends ADbTableBase> (target: T, propertyKey: string) => void;
@@ -163,5 +174,11 @@ export function FK(fktype: FkType.local, className?: string, remoteProperty?: st
 export function FK(fkType: FkType, className?: string, remoteProperty?: string) {
     return <T extends ADbTableBase> (target: T, propertyKey: string) => {
         DbMetadataInfo.entrys.push({target, propertyKey, type: colType.fk, fkTable: className ?? propertyKey.substring(1), fkName: remoteProperty ?? target.constructor.name, fkType });
-    }
+    };
+}
+
+export function DbComputed<T extends ADbTableBase, F>(func: (obj: T) => F, unique = false) {
+    return (target: T, propertyKey: string) => {
+        DbMetadataInfo.entrys.push({target, propertyKey, type: unique ? colType.computedUnique : colType.computed, func });
+    };
 }

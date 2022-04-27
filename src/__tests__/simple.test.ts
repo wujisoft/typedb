@@ -302,7 +302,6 @@ test('get history', async() => {
     expect(rows?.[0]?.companyName).toBe('SomeCompany');
 })
 
-
 test('bug: unlink FKs', async() => {
     let a = await Company.companyName.get('FKCompany');
     const owner = await a?.$NewOwner;
@@ -320,3 +319,20 @@ test('bug: delete FK entry and fetch afterwards', async() => {
     await a?.delete();
     expect((await owner?.$MyCompany)?.length).toBe(0);
 });
+
+
+test('computed col', async() => {
+    const c = Company.new();
+    expect(c.comTest).toBe('hallo');
+});
+
+test('computed col index cleanup', async()  => {
+    const c = await Company.comTest.find('hallo');
+    expect(c?.length).toBe(3);
+});
+
+test('query computed col', async() => {
+    const c = await Company.comTest.find('hallo');
+    expect(c?.[0]?.comTest).toBe('hallo');
+});
+
