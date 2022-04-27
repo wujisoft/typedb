@@ -4,7 +4,10 @@ import { createClient } from 'redis';
 
 export class RedisJsonDbConn implements IDbConn {
     prefix = () => '';
-    constructor(public redis: ReturnType<typeof createClient>) {}
+    readRedis: ReturnType<typeof createClient>;
+    constructor(public redis: ReturnType<typeof createClient>, read?: ReturnType<typeof createClient>) {
+        this.readRedis = read ?? redis;
+    }
 
     async get(table: string, ids: string[]): Promise<any[]> 
     { 
@@ -12,7 +15,7 @@ export class RedisJsonDbConn implements IDbConn {
         ids = ids.filter((y) => y);
         if(!ids || ids.length < 1)
             return [];
-        const data = await this.redis.hmGet(prefix + 'TABLE/' + table, ids);
+        const data = await this.readRedis.hmGet(prefix + 'TABLE/' + table, ids);
         return data.map(row => this.decode(row));
     }
 
@@ -24,7 +27,7 @@ export class RedisJsonDbConn implements IDbConn {
         const result = [];
         let cursor = 0, res: Awaited<ReturnType<typeof this.redis.hScan>>;
         do {
-            res = await this.redis.hScan(prefix + 'INDEX/' + table + '/' + idx, cursor, { MATCH: '*\x00' + query });
+            res = await this.readRedis.hScan(prefix + 'INDEX/' + table + '/' + idx, cursor, { MATCH: '*\x00' + query });
             cursor = res.cursor;
             result.push(...res.tuples.map((x:any) => x.value));
         } while(cursor !== 0);
@@ -39,7 +42,7 @@ export class RedisJsonDbConn implements IDbConn {
         const prefix = this.prefix();        
         let cursor = 0, res: Awaited<ReturnType<typeof this.redis.hScan>>;
         do {
-            res = await this.redis.hScan(prefix + 'UINDEX/' + table + '/' + idx, cursor, { MATCH: query });
+            res = await this.readRedis.hScan(prefix + 'UINDEX/' + table + '/' + idx, cursor, { MATCH: query });
             cursor = res.cursor;
             result.push(...res.tuples.map((x:any) => x.value));
         } while(cursor !== 0);
@@ -51,13 +54,13 @@ export class RedisJsonDbConn implements IDbConn {
         if(!query || query.length < 1)
             return [];
         const prefix = this.prefix();
-        return await this.redis.hmGet(prefix + 'UINDEX/' + table + '/' + idx, query);
+        return await this.readRedis.hmGet(prefix + 'UINDEX/' + table + '/' + idx, query);
     }
 
     async all(table: string): Promise<any[]> 
     {
         const prefix = this.prefix();
-        return Object.values(await this.redis.hGetAll(prefix + 'TABLE/' + table)).map(row => this.decode(row));
+        return Object.values(await this.readRedis.hGetAll(prefix + 'TABLE/' + table)).map(row => this.decode(row));
     }
 
     async delete(table: string, obj: ADbTableBase): Promise<boolean> 
