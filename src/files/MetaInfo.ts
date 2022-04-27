@@ -16,6 +16,7 @@ export enum colType {
 export const enum FkType {
     local,
     remote,
+    localSingle,
 }
 
 export interface MetaInfoEntry {
@@ -171,6 +172,7 @@ export function DbRow(params: {dbconn?: string, archivedb?: string, archivemode?
 
 export function FK(fktype: FkType.remote, className?: string): <T extends ADbTableBase> (target: T, propertyKey: string) => void;
 export function FK(fktype: FkType.local, className?: string, remoteProperty?: string): <T extends ADbTableBase> (target: T, propertyKey: string) => void;
+export function FK(fktype: FkType.localSingle, className?: string, remoteProperty?: string): <T extends ADbTableBase> (target: T, propertyKey: string) => void;
 export function FK(fkType: FkType, className?: string, remoteProperty?: string) {
     return <T extends ADbTableBase> (target: T, propertyKey: string) => {
         DbMetadataInfo.entrys.push({target, propertyKey, type: colType.fk, fkTable: className ?? propertyKey.substring(1), fkName: remoteProperty ?? target.constructor.name, fkType });

@@ -310,7 +310,7 @@ export abstract class ADbTableBase {
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         const remoteClass = <any>DbMetadataInfo.classinfo[meta.fkTable!].constructor;
         if(this.#isRowset) {
-            if(meta.fkType === FkType.local) {
+            if(meta.fkType === FkType.local || meta.fkType === FkType.localSingle) {
                 const ownPK = (<any>this.constructor).__PK;
                 const res = (<DbKeyQueryable<this, string>>remoteClass[meta.fkName + '_ID']).find(this.#prefetch.then(() => (<any>this).map((x:any) => x[ownPK])));
                 res.__base.#prefetch = res.__base.#prefetch.then((that:RowSet<ADbTableBase>) => {
@@ -336,7 +336,15 @@ export abstract class ADbTableBase {
                 return res;
             }            
         } else {
-            if(meta.fkType === FkType.local) {
+            if(meta.fkType === FkType.localSingle) {
+                const ownPK = (<any>this.constructor).__PK;
+                const res = (<DbKeyQueryable<this, string>>remoteClass[meta.fkName + '_ID']).findOne(this.#prefetch.then(() => this.#data[ownPK]));
+                res.__base.#prefetch = res.__base.#prefetch.then((that) => {
+                    this.#fkcache[key.substring(1)] = that;
+                    return <any>that;
+                });
+                return res;
+            } else if(meta.fkType === FkType.local) {
                 const ownPK = (<any>this.constructor).__PK;
                 const res = (<DbKeyQueryable<this, string>>remoteClass[meta.fkName + '_ID']).find(this.#prefetch.then(() => this.#data[ownPK]));
                 res.__base.#prefetch = res.__base.#prefetch.then((that) => {

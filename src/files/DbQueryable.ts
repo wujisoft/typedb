@@ -29,13 +29,14 @@ export class DbKeyQueryable<TTable extends ADbTableBase, TColumn> extends DbQuer
         .then(x => db.get(this.cls.name, x));
         return (<any>this.cls).__makeDbRowSet(query, archive, this.historymode);
     }
-    findOne(search: TColumn): Fetchable<TTable> {
+    findOne(s: TColumn | Promise<TColumn>): Fetchable<TTable> {
         const db = DbMetadataInfo.getDbConn(this.cls, this.historymode ? 'history' : (this.archivemode ? 'archive' : 'data'));
         const  archive = this.archivemode;        
         this.archivemode = false;
-        const query = db.findIndex(this.cls.name, this.prop, search === undefined ? undefined :(<any>search).toString())
+        const query = Promise.resolve(s)
+        .then(search => db.findIndex(this.cls.name, this.prop, search === undefined ? undefined :(<any>search).toString()))
         .then(x => db.get(this.cls.name, x))
-        .then(x => (x.length !== 1) ? Promise.reject(new DbResultError('TypeDB: found more than one record for table ' + this.cls.name + ' search: ' + search)): x[0]);
+        .then(async x => (x.length !== 1) ? Promise.reject(new DbResultError('TypeDB: found more than one record for table ' + this.cls.name + ' search: ' + await s)): x[0]);
         return (<any>this.cls).__makeDbObj(query, archive, this.historymode);
     }
 }
