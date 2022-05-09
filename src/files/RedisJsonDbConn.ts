@@ -198,13 +198,13 @@ export class RedisJsonDbConn implements IDbConn {
         throw new DbLockingError('TypeDB: Optimistic locking failed');
     }
 
-    private decode(obj: string|undefined): any {
+    protected decode(obj: string|undefined): any {
         if(!obj)
             return null;
         return JSON.parse(obj);
     }
 
-    private encode<T extends ADbTableBase>(obj: T, add: any = {}): string {
+    protected encode<T extends ADbTableBase>(obj: T, add: any = {}): string {
 
         return JSON.stringify({ ...obj.__raw, ...add });
     }
