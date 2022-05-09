@@ -1,5 +1,5 @@
 import { createClient } from 'redis';
-import { DbInvalidCallError, DbMetadataInfo, DbResultError, RedisJsonDbConn } from '..';
+import { DbInvalidCallError, DbMetadataInfo, DbResultError, RedisMsgpackDbConn } from '..';
 import { Company } from './schema/Company';
 import { Owner } from './schema/Owner';
 
@@ -19,9 +19,9 @@ beforeAll(async () => {
     await redis3.flushDb();    
 
     DbMetadataInfo.init();
-    DbMetadataInfo.addDbConn(new RedisJsonDbConn(redis));
-    DbMetadataInfo.addDbConn(new RedisJsonDbConn(redis2), 'archive');
-    DbMetadataInfo.addDbConn(new RedisJsonDbConn(redis3), 'history');
+    DbMetadataInfo.addDbConn(new RedisMsgpackDbConn(redis));
+    DbMetadataInfo.addDbConn(new RedisMsgpackDbConn(redis2), 'archive');
+    DbMetadataInfo.addDbConn(new RedisMsgpackDbConn(redis3), 'history');
 })
 
 afterAll(() => {
