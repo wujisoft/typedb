@@ -144,7 +144,7 @@ export abstract class ADbTableBase {
     }
 
     export<T extends ADbTableBase>(this: T, keys: OwnProerties<T>[], into: Partial<T> = {}): Partial<T> {
-        return keys.reduce((r, k) => r[k] = this[k], into);
+        return keys.reduce((r, k) => { r[k] = this[k]; return r; }, into);
     }
 
     /* #region rowset */
