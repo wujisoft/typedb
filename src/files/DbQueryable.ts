@@ -36,7 +36,8 @@ export class DbKeyQueryable<TTable extends ADbTableBase, TColumn> extends DbQuer
         const query = Promise.resolve(s)
         .then(search => db.findIndex(this.cls.name, this.prop, search === undefined ? undefined :(<any>search).toString()))
         .then(x => db.get(this.cls.name, x))
-        .then(async x => (x.length !== 1) ? Promise.reject(new DbResultError('TypeDB: found more than one record for table ' + this.cls.name + ' search: ' + await s)): x[0]);
+        .then(async x => (x.length > 1) ? Promise.reject(new DbResultError('TypeDB: found more than one record for table ' + this.cls.name + ' search: ' + await s)): x)
+        .then(async x => (x.length < 1) ? Promise.reject(new DbResultError('TypeDB: found no record for table ' + this.cls.name + ' search: ' + await s)): x[0]);
         return (<any>this.cls).__makeDbObj(query, archive, this.historymode);
     }
 }
