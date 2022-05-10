@@ -10,6 +10,11 @@ export class Company extends DbTable {
     static address: DbKeyQueryable<Company, string>;
 
     static comTest: DbKeyQueryable<Company, string>;
+
+    
+    static products: DbUniqueQueryable<Company, string>;
+    static prices: DbKeyQueryable<Company, string>;
+    static compTestArr: DbKeyQueryable<Company, string>;
     
     @DbUnique()   companyName!: string;
     @DbKey()      address!: string;
@@ -23,5 +28,15 @@ export class Company extends DbTable {
     readonly comTest?: string;
 
     volatileProp?: string;
+
+
+    @DbUnique(true)
+    products!: string[];
+
+    @DbKey(true)
+    prices!: string[];
+
+    @DbComputed(() => ['a', 'b', 'c'], false, true)
+    compTestArr!: string[];
 
 }

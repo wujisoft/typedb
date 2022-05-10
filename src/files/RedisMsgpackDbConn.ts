@@ -1,6 +1,4 @@
-import { ADbTableBase, colType, DbLockingError, DbMetadataInfo, FkType, IDbConn, RedisJsonDbConn } from "..";
-import { v4 as uuid } from 'uuid';
-import { createClient, commandOptions } from 'redis';
+import { ADbTableBase, RedisJsonDbConn } from "..";
 import { MsgPackEncoder, MsgPackDecoder } from "msgpackstream";
 
 export class RedisMsgpackDbConn extends RedisJsonDbConn {

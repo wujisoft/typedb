@@ -1,6 +1,9 @@
 import { ADbTableBase, colType, DbLockingError, DbMetadataInfo, FkType, IDbConn } from "..";
 import { v4 as uuid } from 'uuid';
 import { createClient } from 'redis';
+import { MetaInfoEntry } from "..";
+
+type multiType = ReturnType<ReturnType<typeof createClient>['multi']>;
 
 export class RedisJsonDbConn implements IDbConn {
     prefix = () => '';
@@ -63,29 +66,82 @@ export class RedisJsonDbConn implements IDbConn {
         return Object.values(await this.readRedis.hGetAll(prefix + 'TABLE/' + table)).map(row => this.decode(row));
     }
 
-    async delete(table: string, obj: ADbTableBase): Promise<boolean> 
+    async watchAllIndexes(isoCli: ReturnType<typeof createClient>, ih: MetaInfoEntry[], prefix: string, table: string) {
+        const idx = ih.filter(x => x.type === colType.key || x.type === colType.computed).map(x => prefix + 'INDEX/' + table + '/' + x.propertyKey);
+        const fks = ih.filter(x => x.type === colType.fk && x.fkType === FkType.remote).map(x => prefix + 'INDEX/' + table + '/' + x.propertyKey.substring(1) + '_ID');
+        const uidx = ih.filter(x => x.type === colType.unique || x.type === colType.computedUnique).map(x => prefix + 'UINDEX/' + table + '/' + x.propertyKey);
+        await isoCli.watch([prefix + 'TABLE/' + table, ...idx, ...uidx, ...fks]);
+    }
+
+    delIndexElement(multi: multiType, table: string, element: MetaInfoEntry, orig: any, prefix: string, pk: string): multiType {
+        if(element.type === colType.key || element.type === colType.computed) {
+            if(element.isArray && Array.isArray(orig[element.propertyKey])) {
+                orig[element.propertyKey].forEach((entry: string) => {
+                    multi = multi.hDel(prefix + 'INDEX/' + table + '/' + element.propertyKey, orig[pk] + String.fromCharCode(0) + entry);
+                });
+                return multi;
+            }
+            return multi.hDel(prefix + 'INDEX/' + table + '/' + element.propertyKey, orig[pk] + String.fromCharCode(0) + orig[element.propertyKey]);
+        }
+        if(element.type === colType.unique || element.type === colType.computedUnique) {
+            if(element.isArray && Array.isArray(orig[element.propertyKey])) {
+                orig[element.propertyKey].forEach((entry: string) => {
+                    multi = multi.hDel(prefix + 'UINDEX/' + table + '/' + element.propertyKey, entry);
+                });
+                return multi;
+            }
+            return multi.hDel(prefix + 'UINDEX/' + table + '/' + element.propertyKey, orig[element.propertyKey]);
+        }
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        if(element.type === colType.fk && element.fkType! === FkType.remote) {
+            return multi.hDel(prefix + 'INDEX/' + table + '/' + element.propertyKey.substring(1) + '_ID', orig[pk] + String.fromCharCode(0) + orig[element.propertyKey.substring(1) + '_ID']);
+        }
+        return multi;
+    }
+
+    addIndexElement(multi: multiType, table: string, element: MetaInfoEntry, obj: any, prefix: string, pk: string): multiType {
+        if((element.type === colType.key || element.type === colType.computed) && (<any>obj)[element.propertyKey] !== undefined) {
+            if(element.isArray) {
+                (<any>obj)[element.propertyKey]?.forEach((entry: string) => {
+                    multi = multi.hSet(prefix + 'INDEX/' + table + '/' + element.propertyKey, (<any>obj)[pk] + String.fromCharCode(0) + entry, (<any>obj)[pk]);
+                });
+                return multi;
+            } 
+            else return multi.hSet(prefix + 'INDEX/' + table + '/' + element.propertyKey, (<any>obj)[pk] + String.fromCharCode(0) + (<any>obj)[element.propertyKey], (<any>obj)[pk]);
+        }
+        if((element.type === colType.unique || element.type === colType.computedUnique) && (<any>obj)[element.propertyKey] !== undefined) {
+            if(element.isArray) {
+                (<any>obj)[element.propertyKey]?.forEach((entry: string) => {
+                    multi = multi.hSet(prefix + 'UINDEX/' + table + '/' + element.propertyKey, entry, (<any>obj)[pk]);
+                });
+                return multi;
+            }
+            else return multi.hSet(prefix + 'UINDEX/' + table + '/' + element.propertyKey, (<any>obj)[element.propertyKey], (<any>obj)[pk]);
+        }
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        if(element.type === colType.fk && element.fkType! === FkType.remote && (<any>obj)[element.propertyKey.substring(1) + '_ID'] !== undefined) {
+            return multi.hSet(
+                prefix + 'INDEX/' + table + '/' + element.propertyKey.substring(1) + '_ID',
+                (<any>obj)[pk] + String.fromCharCode(0) + (<any>obj)[element.propertyKey.substring(1) + '_ID'],
+                (<any>obj)[pk]);
+        }
+        return multi;
+    }
+
+    async delete(table: string, obj: ADbTableBase): Promise<boolean>
     {
         const prefix = this.prefix();
         const pk = (<any>obj.constructor).__PK;
         const ih = Object.values(DbMetadataInfo.inheritInfo[obj.constructor.name]);
-        const idx = ih.filter(x => x.type === colType.key || x.type === colType.computed).map(x => prefix + 'INDEX/' + table + '/' + x.propertyKey);
-        const fks = ih.filter(x => x.type === colType.fk && x.fkType === FkType.remote).map(x => prefix + 'INDEX/' + table + '/' + x.propertyKey.substring(1) + '_ID');
-        const uidx = ih.filter(x => x.type === colType.unique || x.type === colType.computedUnique).map(x => prefix + 'UINDEX/' + table + '/' + x.propertyKey);
         let retry = 100;
         do {
             try {
                 await this.redis.executeIsolated(async (isoCli) => {
-                    await isoCli.watch([prefix + 'TABLE/' + table, ...idx, ...uidx, ...fks]);
+                    await this.watchAllIndexes(isoCli, ih, prefix, table);
                     const orig = this.decode(await isoCli.hGet(prefix + 'TABLE/' + table, (<any>obj)[pk]));
                     let multi = isoCli.multi();
                     ih.forEach(element => {
-                        if(element.type === colType.key || element.type === colType.computed) 
-                            multi = multi.hDel(prefix + 'INDEX/' + table + '/' + element.propertyKey, orig[pk] + String.fromCharCode(0) + orig[element.propertyKey]);
-                        if(element.type === colType.unique || element.type === colType.computedUnique)
-                            multi = multi.hDel(prefix + 'UINDEX/'+ table + '/' + element.propertyKey, orig[element.propertyKey]);
-                        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-                        if(element.type === colType.fk && element.fkType! === FkType.remote)
-                            multi = multi.hDel(prefix + 'INDEX/' + table + '/' + element.propertyKey.substring(1) + '_ID', orig[pk] + String.fromCharCode(0) + orig[element.propertyKey.substring(1) + '_ID']);
+                        multi = this.delIndexElement(multi, table, element, orig, prefix, pk);
                     });
                     multi = multi.hDel(prefix + 'TABLE/' + table, orig[pk]);
                     return await multi.exec();
@@ -123,28 +179,13 @@ export class RedisJsonDbConn implements IDbConn {
                                 multi = multi.hSet(prefix + 'INDEX/' + table + '/' + element.propertyKey, newPK + String.fromCharCode(1) + (<any>obj)[pk] + String.fromCharCode(0) + (<any>obj)[element.propertyKey], newPK);
                             }
                         });
-                        multi = multi.hSet(prefix + 'TABLE/' + table, newPK, this.encode(obj, { '$$PK': newPK, '$$timestamp': +new Date() })); 
+                        multi = multi.hSet(prefix + 'TABLE/' + table, newPK, this.encode(obj, { '$$PK': newPK, '$$timestamp': +new Date() }));
                     } else {
                         ih.forEach(element => {
                             if(orig) {
-                                if(element.type === colType.key || element.type === colType.computed) 
-                                    multi = multi.hDel(prefix + 'INDEX/' + table + '/' + element.propertyKey, orig[pk] + String.fromCharCode(0) + orig[element.propertyKey]);
-                                if(element.type === colType.unique || element.type === colType.computedUnique)
-                                    multi = multi.hDel(prefix + 'UINDEX/'+ table + '/' + element.propertyKey, orig[element.propertyKey]);
-                                // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-                                if(element.type === colType.fk && element.fkType! === FkType.remote)
-                                    multi = multi.hDel(prefix + 'INDEX/' + table + '/' + element.propertyKey.substring(1) + '_ID', orig[pk] + String.fromCharCode(0) + orig[element.propertyKey.substring(1) + '_ID']);
+                                multi = this.delIndexElement(multi, table, element, orig, prefix, pk);
                             }
-                            if((element.type === colType.key || element.type === colType.computed) && (<any>obj)[element.propertyKey] !== undefined) 
-                                multi = multi.hSet(prefix + 'INDEX/' + table + '/' + element.propertyKey, (<any>obj)[pk] + String.fromCharCode(0) + (<any>obj)[element.propertyKey], (<any>obj)[pk]);
-                            if((element.type === colType.unique || element.type === colType.computedUnique) && (<any>obj)[element.propertyKey] !== undefined)
-                                multi = multi.hSet(prefix + 'UINDEX/'+ table + '/' + element.propertyKey, (<any>obj)[element.propertyKey], (<any>obj)[pk]);
-                            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-                            if(element.type === colType.fk && element.fkType! === FkType.remote && (<any>obj)[element.propertyKey.substring(1) + '_ID'] !== undefined)
-                                multi = multi.hSet(
-                                    prefix + 'INDEX/' + table + '/' + element.propertyKey.substring(1) + '_ID', 
-                                    (<any>obj)[pk] + String.fromCharCode(0) + (<any>obj)[element.propertyKey.substring(1) + '_ID'], 
-                                    (<any>obj)[pk]);   
+                            multi = this.addIndexElement(multi, table, element, obj, prefix, pk);
                         });
                         multi = multi.hSet(prefix + 'TABLE/' + table, (<any>obj)[pk], this.encode(obj));
                     }
@@ -161,32 +202,20 @@ export class RedisJsonDbConn implements IDbConn {
         const prefix = this.prefix();
         const pk = DbMetadataInfo.classinfo[ctr.name].PK;
         const ih = Object.values(DbMetadataInfo.inheritInfo[ctr.name]);
-        const idx = ih.filter(x => x.type === colType.key || x.type === colType.computed).map(x => prefix + 'INDEX/' + table + '/' + x.propertyKey);
-        const fks = ih.filter(x => x.type === colType.fk && x.fkType === FkType.remote).map(x => prefix + 'INDEX/' + table + '/' + x.propertyKey.substring(1) + '_ID');
-        const uidx = ih.filter(x => x.type === colType.unique || x.type === colType.computedUnique).map(x => prefix + 'UINDEX/' + table + '/' + x.propertyKey);
         let retry = 100;
         do {
             try {
                 await this.redis.executeIsolated(async (isoCli) => {
-                    await isoCli.watch([prefix + 'TABLE/' + table, ...idx, ...uidx, ...fks]);        
+                    await this.watchAllIndexes(isoCli, ih, prefix, table);
                     let multi = isoCli.multi();
                     let i: string[] = <any>await isoCli.keys(prefix + 'INDEX/' + table + '/*');
                     i.forEach((e) => multi = multi.del(e));
-                    i = <any>await isoCli.keys(prefix + 'UINDEX/'+table+'/*');
+                    i = <any>await isoCli.keys(prefix + 'UINDEX/' + table + '/*');
                     i.forEach((e) => multi = multi.del(e));
                     const data = <any>await isoCli.hGetAll(prefix + 'TABLE/' + table);
                     for(const obj of data) {
                         ih.forEach(element => {
-                            if((element.type === colType.key || element.type === colType.computed) && (<any>obj)[element.propertyKey] !== undefined) 
-                                multi = multi.hSet(prefix + 'INDEX/' + table + '/' + element.propertyKey, obj[pk] + String.fromCharCode(0) + obj[element.propertyKey], obj[pk]);
-                            if((element.type === colType.unique || element.type === colType.computedUnique) && (<any>obj)[element.propertyKey] !== undefined)
-                                multi = multi.hSet(prefix + 'UINDEX/'+ table + '/' + element.propertyKey, obj[element.propertyKey], obj[pk]);
-                            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-                            if(element.type === colType.fk && element.fkType! === FkType.remote && (<any>obj)[element.propertyKey.substring(1) + '_ID'] !== undefined)
-                                multi = multi.hSet(
-                                    prefix + 'INDEX/' + table + '/' + element.propertyKey.substring(1) + '_ID', 
-                                    (<any>obj)[pk] + String.fromCharCode(0) + (<any>obj)[element.propertyKey.substring(1) + '_ID'], 
-                                    (<any>obj)[pk]);    
+                            multi = this.addIndexElement(multi, table, element, obj, prefix, pk);
                         });
                     }
                     await multi.exec();

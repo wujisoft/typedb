@@ -349,5 +349,23 @@ test('query computed col', async() => {
     expect(c?.[0]?.comTest).toBe('hallo');
 });
 
+test('arrayIndex', async () => {
+    const c = Company.new();
+    c.products = ['milch', 'butter', 'brot'];
+    c.prices = ['cheap', 'expensive', 'cheap'];
+    await c.save();
+    const e = Company.new();
+    e.prices = ['cheap', 'expensive', 'cheap'];
+    await e.save();
+
+    const a = await Company.products.get('milch');
+    expect(a?.ID).toBe(c.ID);
+    const b = await Company.prices.find('cheap');
+    expect(b?.[0].ID).toBe(c.ID);
+    expect(b?.[1].ID).toBe(e.ID);
+    const d = await Company.compTestArr.find('a');
+    expect(d?.length).toBe(5);
+});
+
 
 

@@ -23,6 +23,7 @@ export interface MetaInfoEntry {
     target: ADbTableBase;
     propertyKey: string;
     type: colType;
+    isArray?: boolean;
     fkTable?: string;
     fkName?: string;
     fkType?: FkType;
@@ -139,9 +140,9 @@ export function DbCol() {
     };
 }
 
-export function DbKey() {
+export function DbKey(isArray = false) {
     return <T extends ADbTableBase> (target: T, propertyKey: string) => {
-        DbMetadataInfo.entrys.push({target, propertyKey, type: colType.key });
+        DbMetadataInfo.entrys.push({target, propertyKey, type: colType.key, isArray });
     };
 }
 
@@ -151,9 +152,9 @@ export function DbPK() {
     };
 }
 
-export function DbUnique() {
+export function DbUnique(isArray = false) {
     return <T extends ADbTableBase> (target: T, propertyKey: string) => {
-        DbMetadataInfo.entrys.push({target, propertyKey, type: colType.unique });
+        DbMetadataInfo.entrys.push({target, propertyKey, type: colType.unique, isArray });
     };
 }
 
@@ -179,8 +180,8 @@ export function FK(fkType: FkType, className?: string, remoteProperty?: string) 
     };
 }
 
-export function DbComputed<T extends ADbTableBase, F>(func: (obj: T) => F, unique = false) {
+export function DbComputed<T extends ADbTableBase, F>(func: (obj: T) => F, unique = false, isArray = false) {
     return (target: T, propertyKey: string) => {
-        DbMetadataInfo.entrys.push({target, propertyKey, type: unique ? colType.computedUnique : colType.computed, func });
+        DbMetadataInfo.entrys.push({target, propertyKey, type: unique ? colType.computedUnique : colType.computed, func, isArray });
     };
 }
