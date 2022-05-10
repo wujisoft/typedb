@@ -22,4 +22,6 @@ export class Company extends DbTable {
     @DbComputed(() => 'hallo')
     readonly comTest?: string;
 
+    volatileProp?: string;
+
 }

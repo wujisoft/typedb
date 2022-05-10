@@ -35,6 +35,7 @@ test("Create new DB entry", async () => {
     c.companyName = 'TestCompany';
     c.address = 'Nullstr 5';
     c.value = 42;
+    c.volatileProp = "test";
     expect(await c.save()).toBe(true);
 
     const b = Company.new();
@@ -47,6 +48,18 @@ test("Create new DB entry", async () => {
     await b.save();
     await b.save();
 });
+
+test("if volatile property is not saved", async () => {
+    const c = await Company.companyName.get('TestCompany');
+    expect(c?.volatileProp).toBeUndefined();
+})
+
+test("if volatile property is exported", async () => {
+    const c = await Company.companyName.get('TestCompany');
+    expect(c?.toJSON().volatileProp).toBeUndefined();
+    c!.volatileProp = 'test1';
+    expect(c?.toJSON().volatileProp).toBe('test1');
+})
 
 test("read DB entry by UniqueIndex", async () => {
     const r = await Company.companyName.get('TestCompany');
@@ -335,4 +348,6 @@ test('query computed col', async() => {
     const c = await Company.comTest.find('hallo');
     expect(c?.[0]?.comTest).toBe('hallo');
 });
+
+
 

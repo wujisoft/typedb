@@ -45,7 +45,10 @@ export abstract class ADbTableBase {
         if(this.#isRowset) {
             return (<RowSet<this>>this).map((x) => x.toJSON());
         } else {
-            return Object.fromEntries(Object.entries(DbMetadataInfo.inheritInfo[this.constructor.name]).filter(([,value]) => value.type !== colType.fk).map(([key]) => [key, (<any>this)[key]]));
+            const dbkeys = Object.keys(DbMetadataInfo.inheritInfo[this.constructor.name]);
+            const dbdata = Object.fromEntries(Object.entries(DbMetadataInfo.inheritInfo[this.constructor.name]).filter(([,value]) => value.type !== colType.fk).map(([key]) => [key, (<any>this)[key]]));
+            const npData = Object.fromEntries(Object.getOwnPropertyNames(this).filter(name => !dbkeys.includes(name)).map((name) => [name, (<any>this)[name]]));
+            return {...dbdata, ...npData};
         }
     }
 
