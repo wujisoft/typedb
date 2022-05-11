@@ -9,5 +9,5 @@ export interface IDbConn {
     delete(table: string, object: ADbTableBase): Promise<boolean>;
     upsert(table: string, object: ADbTableBase, nx: boolean, history: boolean, force: boolean): Promise<boolean>;
 
-    reindex<T extends ADbTableBase>(table: string, ctr: new() => T): void
+    reindex<T extends ADbTableBase>(table: string, ctr: new() => T): void;
 }

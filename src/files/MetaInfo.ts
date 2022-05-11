@@ -42,7 +42,7 @@ export class DbMetadataInfo {
     static init() {
         this.entrys.forEach(x => {
             const tabName = x.target.constructor.name;
-            if(!this.tableInfo[tabName])  
+            if(!this.tableInfo[tabName])
                 this.tableInfo[tabName] = <any>[];
             if(!this.tableInfo[tabName][x.propertyKey])
                 this.tableInfo[tabName][x.propertyKey] = x;
@@ -56,9 +56,9 @@ export class DbMetadataInfo {
                 if(!obj)
                     break;
                 const tabName = obj.constructor.name;
-                this.inheritInfo[cls.name] =  {...this.inheritInfo[cls.name], ...this.tableInfo[tabName]};                
+                this.inheritInfo[cls.name] = {...this.inheritInfo[cls.name], ...this.tableInfo[tabName]};
             } while(obj);
-            Object.entries(this.inheritInfo[cls.name]).forEach( ([,v]) => this.initField(cls.prototype, v));
+            Object.entries(this.inheritInfo[cls.name]).forEach(([,v]) => this.initField(cls.prototype, v));
             const pk = Object.entries(this.inheritInfo[cls.name]).find(([, value]) => value.type === colType.pk);
             if(!pk)
                 throw new DbConfigError('TypeDB Object ' + cls.name + ' has no primary key');
@@ -78,11 +78,11 @@ export class DbMetadataInfo {
                 Object.defineProperty(target, meta.propertyKey.substring(1) + '_ID', {
                     get: function () { return this.__getProperty(meta.propertyKey.substring(1) + '_ID'); },
                     set: function (value) { this.__setProperty(meta.propertyKey.substring(1) + '_ID', value); }
-                });            
+                });
             } else {
                 Object.defineProperty(target, meta.propertyKey.substring(1), {
                     get: function () { return this.__getFKCacheProperty(meta.propertyKey.substring(1)); }
-                });                
+                });
             }
         } else if(meta.type === colType.computed || meta.type === colType.computedUnique) {
             Object.defineProperty(target, meta.propertyKey, {
@@ -91,8 +91,8 @@ export class DbMetadataInfo {
             });
         } else {
             Object.defineProperty(target, meta.propertyKey, {
-                get: function () { return this.__getProperty(meta.propertyKey); },
-                set: function (value) { this.__setProperty(meta.propertyKey, value); },
+                get:        function () { return this.__getProperty(meta.propertyKey); },
+                set:        function (value) { this.__setProperty(meta.propertyKey, value); },
                 enumerable: true
             });
         }
@@ -112,7 +112,7 @@ export class DbMetadataInfo {
         }
     }
 
-    static getDbConn<T extends ADbTableBase>(table: new(...args:any[]) => T, mode: "data"|"archive"|"history" = "data"): IDbConn {
+    static getDbConn<T extends ADbTableBase>(table: new(...args:any[]) => T, mode: "data" | "archive" | "history" = "data"): IDbConn {
         if(mode === "archive") {
             if(!this.classinfo[table.name]?.archivedb || !this.dbconns[this.classinfo[table.name]?.archivedb])
                 throw new DbConfigError('TypeDB: no ArchiveDB for type ' + table.name);
@@ -120,7 +120,7 @@ export class DbMetadataInfo {
         } else if(mode === "history") {
             if(!this.classinfo[table.name]?.historydb || !this.dbconns[this.classinfo[table.name]?.historydb ?? -1])
                 throw new DbConfigError('TypeDB: no HistoryDB for type ' + table.name);
-            return this.dbconns[this.classinfo[table.name]?.historydb ?? -1];            
+            return this.dbconns[this.classinfo[table.name]?.historydb ?? -1];
         } else {
             if(!this.classinfo[table.name]?.dbconn || !this.dbconns[this.classinfo[table.name]?.dbconn])
                 throw new DbConfigError('TypeDB: no IDbConn for type ' + table.name);
@@ -161,11 +161,11 @@ export function DbUnique(isArray = false) {
 export function DbRow(params: {dbconn?: string, archivedb?: string, archivemode?: "protected" | "active" | "none", historydb?: string} = {}) {
         return <T extends { new(...args: any[]): ADbTableBase }> (constructor: T) => {
             DbMetadataInfo.classinfo[constructor.name] = {
-                constructor, PK: 'ID', 
-                dbconn: params.dbconn ?? 'default', 
-                archivedb: params.archivedb ?? 'archive', 
-                archivemode: params.archivemode ?? "none", 
-                historydb: params.historydb
+                constructor, PK:          'ID',
+                dbconn:      params.dbconn ?? 'default',
+                archivedb:   params.archivedb ?? 'archive',
+                archivemode: params.archivemode ?? "none",
+                historydb:   params.historydb
             };
             return constructor;
         };

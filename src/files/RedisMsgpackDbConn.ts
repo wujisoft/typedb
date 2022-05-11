@@ -10,7 +10,7 @@ export class RedisMsgpackDbConn extends RedisJsonDbConn {
         return Buffer.from(this.#msgpack_enc.encodeStream({ ...obj.__raw, ...add })).toString('base64');
     }
 
-    protected decode(msg: string|undefined): any {
+    protected decode(msg: string | undefined): any {
         //return typeof value === 'string' ? JSON.parse(value) : undefined;
         if(!msg)
             return null;

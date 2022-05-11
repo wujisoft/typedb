@@ -12,7 +12,7 @@ export class Fetcher<T extends ADbTableBase> {
         });
     }
 
-    async then(onFulfilled?: ((value: T|null) => any | PromiseLike<any>), onReject?: (value: any) => any): Promise<T | never> {
+    async then(onFulfilled?: ((value: T | null) => any | PromiseLike<any>), onReject?: (value: any) => any): Promise<T | never> {
         // eslint-disable-next-line @typescript-eslint/no-misused-promises
         if(!this.__base.__fetching) {
           if(onFulfilled) {
@@ -20,14 +20,14 @@ export class Fetcher<T extends ADbTableBase> {
                 return await onFulfilled(null);
             return await onFulfilled(this.__base);
           }
-          else 
+          else
             return this.__base.__fetching;
         } else {
           return this.__base.__fetching.then(async (that) => {
             if(onFulfilled && this.__base.__fetchIsInvalid)
                 return await onFulfilled(null);
             if(this.__base.__fetchIsInvalid)
-                return null;                
+                return null;
             if(onFulfilled)
                 return await onFulfilled(that);
             return that;

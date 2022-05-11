@@ -11,9 +11,84 @@ parserOptions:
   project: ["tsconfig.json"]
 plugins:
   - '@typescript-eslint'
+ignorePatterns:
+  - src/__tests__/**/*
 rules: 
   '@typescript-eslint/no-explicit-any': 0
+  '@typescript-eslint/no-unused-vars':
+    - 'warn'
+    - args: none
   '@typescript-eslint/no-floating-promises': 
     - 'error'
   '@typescript-eslint/no-misused-promises':
     - 'error'
+  '@typescript-eslint/semi':
+    - 'error'
+  '@typescript-eslint/keyword-spacing':
+    - 'warn'
+    - before: true
+      after: true
+      overrides:
+        if:
+          after: false
+        while:
+          after: false
+        for:
+          after: false
+        catch:
+          after: false
+        super:
+          after: false
+        switch:
+          after: false
+        this:
+          before: false
+        await:
+          before: false
+  '@typescript-eslint/space-before-function-paren':
+    - 'warn'
+    - anonymous: 'always'
+      named: 'never'
+      asyncArrow: 'always'
+  'no-multi-spaces':
+    - 'warn'
+    - ignoreEOLComments: true
+  'no-trailing-spaces': 
+    - 'warn'
+    - ignoreComments: true
+  'no-whitespace-before-property': 
+    - 'warn'
+  '@typescript-eslint/space-before-blocks':
+    - 'warn'
+    - 'always'
+  'space-in-parens':
+    - 'warn'
+    - 'never'
+  '@typescript-eslint/space-infix-ops':
+    - 'warn'
+    - int32Hint: true
+  'switch-colon-spacing':
+    - 'warn'
+    - after: true
+      before: false
+  'arrow-spacing':
+    - 'warn'
+  'block-spacing':
+    - 'warn'
+    - 'always'
+  'key-spacing':
+    - 'warn'
+    - align: 'value'
+  'semi-spacing':
+    - 'warn'
+    - before: false
+      after: true
+  '@typescript-eslint/member-delimiter-style':
+    - 'warn'
+    - singleline:
+        delimiter: comma
+        requireLast: false
+      multiline:
+        delimiter: semi
+        requireLast: true
+      multilineDetection: 'brackets'

@@ -12,8 +12,8 @@ export class RedisJsonDbConn implements IDbConn {
         this.readRedis = read ?? redis;
     }
 
-    async get(table: string, ids: string[]): Promise<any[]> 
-    { 
+    async get(table: string, ids: string[]): Promise<any[]>
+    {
         const prefix = this.prefix();
         ids = ids.filter((y) => y);
         if(!ids || ids.length < 1)
@@ -22,7 +22,7 @@ export class RedisJsonDbConn implements IDbConn {
         return data.map(row => this.decode(row));
     }
 
-    async findIndex(table: string, idx: string, query: string): Promise<string[]> 
+    async findIndex(table: string, idx: string, query: string): Promise<string[]>
     {
         if(!query)
             return [];
@@ -37,12 +37,12 @@ export class RedisJsonDbConn implements IDbConn {
         return result;
     }
 
-    async findUnique(table: string, idx: string, query: string): Promise<string[]> 
+    async findUnique(table: string, idx: string, query: string): Promise<string[]>
     {
         if(!query)
             return [];
         const result = [];
-        const prefix = this.prefix();        
+        const prefix = this.prefix();
         let cursor = 0, res: Awaited<ReturnType<typeof this.redis.hScan>>;
         do {
             res = await this.readRedis.hScan(prefix + 'UINDEX/' + table + '/' + idx, cursor, { MATCH: query });
@@ -52,7 +52,7 @@ export class RedisJsonDbConn implements IDbConn {
         return result;
     }
 
-    async getUnique(table: string, idx: string, query: string[]): Promise<string[]> 
+    async getUnique(table: string, idx: string, query: string[]): Promise<string[]>
     {
         if(!query || query.length < 1)
             return [];
@@ -60,7 +60,7 @@ export class RedisJsonDbConn implements IDbConn {
         return await this.readRedis.hmGet(prefix + 'UINDEX/' + table + '/' + idx, query);
     }
 
-    async all(table: string): Promise<any[]> 
+    async all(table: string): Promise<any[]>
     {
         const prefix = this.prefix();
         return Object.values(await this.readRedis.hGetAll(prefix + 'TABLE/' + table)).map(row => this.decode(row));
@@ -106,7 +106,7 @@ export class RedisJsonDbConn implements IDbConn {
                     multi = multi.hSet(prefix + 'INDEX/' + table + '/' + element.propertyKey, (<any>obj)[pk] + String.fromCharCode(0) + entry, (<any>obj)[pk]);
                 });
                 return multi;
-            } 
+            }
             else return multi.hSet(prefix + 'INDEX/' + table + '/' + element.propertyKey, (<any>obj)[pk] + String.fromCharCode(0) + (<any>obj)[element.propertyKey], (<any>obj)[pk]);
         }
         if((element.type === colType.unique || element.type === colType.computedUnique) && (<any>obj)[element.propertyKey] !== undefined) {
@@ -148,26 +148,23 @@ export class RedisJsonDbConn implements IDbConn {
                 });
                 return true;
             // eslint-disable-next-line no-empty
-            } catch { }
+            } catch{ }
         } while(retry-- > 0);
         throw new DbLockingError('TypeDB: Optimistic locking failed');
     }
 
-    async upsert(table: string, obj: ADbTableBase, nx = false, history = false, force = false): Promise<boolean> 
+    async upsert(table: string, obj: ADbTableBase, nx = false, history = false, force = false): Promise<boolean>
     {
         if(!force && Object.entries(obj.__dirty).length < 1)
             return false;
         const prefix = this.prefix();
         const pk = (<any>obj.constructor).__PK;
         const ih = Object.values(DbMetadataInfo.inheritInfo[obj.constructor.name]);
-        const idx = ih.filter(x => history ? [colType.key, colType.computed, colType.unique, colType.computedUnique, colType.pk].includes(x.type) : x.type === colType.key ).map(x => 'INDEX/' + table + '/' + x.propertyKey);
-        const fks = ih.filter(x => x.type === colType.fk && x.fkType === FkType.remote).map(x => prefix + 'INDEX/' + table + '/' + x.propertyKey.substring(1) + '_ID');
-        const uidx = history ? [] : ih.filter(x => x.type === colType.unique || x.type === colType.computedUnique).map(x => prefix + 'UINDEX/' + table + '/' + x.propertyKey);
         let retry = 100;
         do {
             try {
                 await this.redis.executeIsolated(async (isoCli) => {
-                    await isoCli.watch([prefix + 'TABLE/' + table, ...idx, ...uidx, ...fks]);  
+                    await this.watchAllIndexes(isoCli, ih, prefix, table);
                     const orig = this.decode(await isoCli.hGet(prefix + 'TABLE/' + table, (<any>obj)[pk]));
                     if(orig && nx)
                         return false;
@@ -222,12 +219,12 @@ export class RedisJsonDbConn implements IDbConn {
                 });
                 return true;
             // eslint-disable-next-line no-empty
-            } catch { }
+            } catch{ }
         } while(retry-- > 0);
         throw new DbLockingError('TypeDB: Optimistic locking failed');
     }
 
-    protected decode(obj: string|undefined): any {
+    protected decode(obj: string | undefined): any {
         if(!obj)
             return null;
         return JSON.parse(obj);

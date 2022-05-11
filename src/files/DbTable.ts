@@ -58,7 +58,7 @@ export abstract class ADbTableBase {
         if(this.#isRowset)
             throw new DbInvalidCallError('TypeDb: cannot archive rowset');
         if(this.#history)
-            throw new DbInvalidCallError('TypeDb: Cannot modify history object');            
+            throw new DbInvalidCallError('TypeDb: Cannot modify history object');
         if(this.#archived)
             throw new DbInvalidCallError('TypeDb: cannot archive already archived record');
         if(DbMetadataInfo.classinfo[this.constructor.name].archivemode === "none")
@@ -88,11 +88,11 @@ export abstract class ADbTableBase {
 
     async delete(): Promise<boolean> {
         if(this.#isRowset)
-            throw new DbInvalidCallError('TypeDb: cannot archive rowset');   
+            throw new DbInvalidCallError('TypeDb: cannot archive rowset');
         if(this.#history)
-            throw new DbInvalidCallError('TypeDb: Cannot modify history object');         
+            throw new DbInvalidCallError('TypeDb: Cannot modify history object');
         if(this.#archived && DbMetadataInfo.classinfo[this.constructor.name].archivemode !== "active")
-            throw new DbInvalidCallError('TypeDb: cannot modify archived entry of type ' + this.constructor.name);        
+            throw new DbInvalidCallError('TypeDb: cannot modify archived entry of type ' + this.constructor.name);
         if(!this.#archived && DbMetadataInfo.classinfo[this.constructor.name].archivemode !== "none")
             return this.archive();
         if(this.onDelete)
@@ -116,7 +116,7 @@ export abstract class ADbTableBase {
 
     static fromObject<T extends ADbTableBase>(this: { new(...args:any[]): T}, data: Partial<T>, save: true, pk?: string): Promise<T | null>;
     static fromObject<T extends ADbTableBase>(this: { new(...args:any[]): T}, data: Partial<T>, save?: false, pk?: string): T;
-    static fromObject<T extends ADbTableBase>(this: { new(...args:any[]): T}, data: Partial<T>, save = false, pk?: string ): T {
+    static fromObject<T extends ADbTableBase>(this: { new(...args:any[]): T}, data: Partial<T>, save = false, pk?: string): T {
         const that = (<any>this).new();
         Object.entries(DbMetadataInfo.inheritInfo[this.name]).filter(([, meta]) => ![colType.fk, colType.pk].includes(meta.type)).forEach(([key]) => {
             if((<any>data)[key] !== undefined) {
@@ -130,9 +130,9 @@ export abstract class ADbTableBase {
         return that;
     }
 
-    import<T extends ADbTableBase>(this: T|RowSet<T>, values: Partial<T>, keys?: OwnProerties<T>[], save?: false): T;
-    import<T extends ADbTableBase>(this: T|RowSet<T>, values: Partial<T>, keys?: OwnProerties<T>[], save?: true): Promise<boolean>;
-    import<T extends ADbTableBase>(this: T|RowSet<T>, values: Partial<T>, keys?: OwnProerties<T>[], save = false): T | Promise<boolean> {
+    import<T extends ADbTableBase>(this: T | RowSet<T>, values: Partial<T>, keys?: OwnProerties<T>[], save?: false): T;
+    import<T extends ADbTableBase>(this: T | RowSet<T>, values: Partial<T>, keys?: OwnProerties<T>[], save?: true): Promise<boolean>;
+    import<T extends ADbTableBase>(this: T | RowSet<T>, values: Partial<T>, keys?: OwnProerties<T>[], save = false): T | Promise<boolean> {
         (keys ?? <(keyof T)[]>Object.keys(values)).forEach((k) => {
             if(values[k] !== undefined)
                 // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
@@ -151,17 +151,17 @@ export abstract class ADbTableBase {
     static all<T extends ADbTableBase>(this: { new(...args:any[]): T }, archive?: boolean, history?: false):Fetchable<RowSet<T>>;
     static all<T extends ADbTableBase>(this: { new(...args:any[]): T }, archive: false, history: boolean): Fetchable<RowSet<T>>;
     static all<T extends ADbTableBase>(this: { new(...args:any[]): T }, archive = false, history = false): Fetchable<RowSet<T>> {
-        const queryRes = DbMetadataInfo.getDbConn(this, archive ? 'archive' : (history? 'history': 'data')).all(this.name);
+        const queryRes = DbMetadataInfo.getDbConn(this, archive ? 'archive' : (history ? 'history' : 'data')).all(this.name);
         return (this as any).__makeDbRowSet(queryRes, archive, history);
     }
 
-    sort<T extends ADbTableBase>(this: Fetchable<RowSet<T>>|RowSet<T>, cb: (elem1: T, elem2: T) => number): Fetchable<RowSet<T>> {
+    sort<T extends ADbTableBase>(this: Fetchable<RowSet<T>> | RowSet<T>, cb: (elem1: T, elem2: T) => number): Fetchable<RowSet<T>> {
         const pr = this.#prefetch.then((that:any) => that?.map((x:any) => x).sort(cb).map((x:any) => x.__raw));
         return (<any>this.constructor).__makeDbRowSet(pr, this.#archived, this.#history);
     }
 
-    map<T extends ADbTableBase, R>(this: Fetchable<RowSet<T>>, cb: (elem: T, index: number, all: RowSet<T>) => R|Promise<R>): R[]|Promise<R[]>;
-    map<T extends ADbTableBase, R>(this: RowSet<T>, cb: (elem: T, index: number, all: RowSet<T>) => R|Promise<R>): R[];
+    map<T extends ADbTableBase, R>(this: Fetchable<RowSet<T>>, cb: (elem: T, index: number, all: RowSet<T>) => R | Promise<R>): R[] | Promise<R[]>;
+    map<T extends ADbTableBase, R>(this: RowSet<T>, cb: (elem: T, index: number, all: RowSet<T>) => R | Promise<R>): R[];
     map<T extends ADbTableBase, R>(this: RowSet<T> | Fetchable<RowSet<T>>, cb: (elem: T, index: number, all: RowSet<T>) => R): R[] | Promise<R[]> {
         if(!this.#isRowset)
             throw new DbInvalidCallError('TypeDb: map can only be called on RowSets');
@@ -186,10 +186,10 @@ export abstract class ADbTableBase {
         }
     }
 
-    find<T extends ADbTableBase>(this: RowSet<T>|Fetchable<RowSet<T>>, cb: (elem: T, index: number, all: RowSet<T>) => Promise<boolean>, async: true): Promise<T|undefined>;
-    find<T extends ADbTableBase>(this: RowSet<T>, cb: (elem: T, index: number, all: RowSet<T>) => boolean, async?: false): T|undefined;
-    find<T extends ADbTableBase>(this: Fetchable<RowSet<T>>, cb: (elem: T, index: number, all: RowSet<T>) => boolean, async?: false): T|undefined|Promise<T|undefined>;
-    find<T extends ADbTableBase>(this: RowSet<T> | Fetchable<RowSet<T>>, cb: (elem: T, index: number, all: RowSet<T>) => boolean|Promise<boolean>, async = false): T|undefined| Promise<T|undefined> {
+    find<T extends ADbTableBase>(this: RowSet<T> | Fetchable<RowSet<T>>, cb: (elem: T, index: number, all: RowSet<T>) => Promise<boolean>, async: true): Promise<T | undefined>;
+    find<T extends ADbTableBase>(this: RowSet<T>, cb: (elem: T, index: number, all: RowSet<T>) => boolean, async?: false): T | undefined;
+    find<T extends ADbTableBase>(this: Fetchable<RowSet<T>>, cb: (elem: T, index: number, all: RowSet<T>) => boolean, async?: false): T | undefined | Promise<T | undefined>;
+    find<T extends ADbTableBase>(this: RowSet<T> | Fetchable<RowSet<T>>, cb: (elem: T, index: number, all: RowSet<T>) => boolean | Promise<boolean>, async = false): T | undefined | Promise<T | undefined> {
         if(!this.#isRowset)
             throw new DbInvalidCallError('TypeDb: find can only be called on RowSets');
         if(!async && this.#prefetch_completed) {
@@ -209,9 +209,9 @@ export abstract class ADbTableBase {
         }
     }
 
-    filter<T extends ADbTableBase>(this: RowSet<T> | Fetchable<RowSet<T>>, cb: (elem: T, index: number, all: RowSet<T>) => boolean|Promise<boolean>): Fetchable<RowSet<T>>{
+    filter<T extends ADbTableBase>(this: RowSet<T> | Fetchable<RowSet<T>>, cb: (elem: T, index: number, all: RowSet<T>) => boolean | Promise<boolean>): Fetchable<RowSet<T>> {
         if(!this.#isRowset)
-            throw new DbInvalidCallError('TypeDb: filter can only be called on RowSets');   
+            throw new DbInvalidCallError('TypeDb: filter can only be called on RowSets');
         const result = <T> new (<any>this.constructor);
         result.#isRowset = true;
         result.#prefetch = (<Promise<RowSet<T>>>this.#prefetch).then(async (that) => {
@@ -227,7 +227,7 @@ export abstract class ADbTableBase {
             result.#history = that.#history;
             return result;
         });
-        return <Fetchable<RowSet<T>>>new Fetcher<T>(result);
+        return <Fetchable<RowSet<T>>> new Fetcher<T>(result);
     }
 
     *[Symbol.iterator]<T extends ADbTableBase>(this: RowSet<T>) {
@@ -296,19 +296,19 @@ export abstract class ADbTableBase {
 
     __setProperty(key: string, value: any) {
         if(this.#history)
-            throw new DbInvalidCallError('TypeDb: Cannot modify history object');        
+            throw new DbInvalidCallError('TypeDb: Cannot modify history object');
         if(this.#data_modified[key] === undefined)
             this.#data_modified[key] = this.#data[key];
         this.#data[key] = value;
     }
 
-    __getFKCacheProperty(key: string): Fetchable<RowSet<this>|this> {
+    __getFKCacheProperty(key: string): Fetchable<RowSet<this> | this> {
         if(this.#fkcache[key] === undefined)
-            throw new DbInvalidCallError('TypeDB: accessing non-fetching FK Property without prefetch - use "await $'+key +'" instead');
+            throw new DbInvalidCallError('TypeDB: accessing non-fetching FK Property without prefetch - use "await $' + key + '" instead');
         return this.#fkcache[key];
     }
 
-    __getFKProperty(key: string): Fetchable<RowSet<this>|this> {
+    __getFKProperty(key: string): Fetchable<RowSet<this> | this> {
         const meta = DbMetadataInfo.inheritInfo[this.constructor.name][key];
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         const remoteClass = <any>DbMetadataInfo.classinfo[meta.fkTable!].constructor;
@@ -333,11 +333,11 @@ export abstract class ADbTableBase {
                     const idx = Object.fromEntries(that.map((x:any) => [x[remotePK], x ]));
                     for(let i = 0; i < (<RowSet<this>>this).length; i++) {
                         (<RowSet<this>>this)[i].#fkcache[key.substring(1)] = idx[(<any>this)[i][meta.propertyKey.substring(1) + '_ID']] ?? null;
-                    }                    
+                    }
                     return <any>that;
                 });
                 return res;
-            }            
+            }
         } else {
             if(meta.fkType === FkType.localSingle) {
                 const ownPK = (<any>this.constructor).__PK;
@@ -368,10 +368,10 @@ export abstract class ADbTableBase {
     }
 
     __setFKProperty(key: string, value: any) {
-        if(this.#isRowset) 
+        if(this.#isRowset)
             throw new DbInvalidCallError('TypeDb: Cannot set ForeignKey on rowsets');
         if(this.#history)
-            throw new DbInvalidCallError('TypeDb: Cannot modify history object');            
+            throw new DbInvalidCallError('TypeDb: Cannot modify history object');
         const meta = DbMetadataInfo.inheritInfo[this.constructor.name][key];
         if(meta.fkType === FkType.local)
             throw new DbInvalidCallError('TypeDb: ForeignKeys need to be set on remote end of relation');
@@ -396,7 +396,7 @@ export abstract class ADbTableBase {
             that.#prefetch_completed = true;
             return that;
         });
-        return <Fetchable<T>>new Fetcher(that);
+        return <Fetchable<T>> new Fetcher(that);
     }
 
     static __makeDbRowSet<T extends ADbTableBase>(this: { new(...args:any[]): T }, data: Promise<any[]>, archived = false, history = false): Fetchable<RowSet<T>> {
@@ -415,7 +415,7 @@ export abstract class ADbTableBase {
             that.#prefetch_completed = true;
             return that;
         });
-        return <Fetchable<RowSet<T>>>new Fetcher(that);
+        return <Fetchable<RowSet<T>>> new Fetcher(that);
     }
 }
 
