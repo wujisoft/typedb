@@ -1,11 +1,11 @@
 import { colType, DbInvalidCallError, DbKeyQueryable, DbMetadataInfo, DbPKQueryable, DbResultError, Fetchable, Fetcher, FkType } from "..";
 
-type NonFunctionPropertyNames<T> = {
+export type NonFunctionPropertyNames<T> = {
     // eslint-disable-next-line @typescript-eslint/ban-types
     [K in keyof T]: T[K] extends Function ? never : K
 }[keyof T];
-type NonFunctionProperties<T> = Pick<T, NonFunctionPropertyNames<T>>;
-type OwnProerties<T> = keyof NonFunctionProperties<Omit<T, keyof ADbTableBase>>;
+export type NonFunctionProperties<T> = Pick<T, NonFunctionPropertyNames<T>>;
+export type OwnProerties<T> = keyof NonFunctionProperties<Omit<T, keyof ADbTableBase>>;
 
 export abstract class ADbTableBase {
     #prefetch: Promise<this> = Promise.resolve(this);
