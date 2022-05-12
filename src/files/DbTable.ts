@@ -17,6 +17,8 @@ export abstract class ADbTableBase {
     #archived = false;
     #history = false;
 
+    #subtable?: string;
+
     onDelete?(): void;
     onSave?(): void;
     onArchive?(): void;
@@ -25,18 +27,22 @@ export abstract class ADbTableBase {
 
     abstract newID(): any;
 
-    static new<T extends ADbTableBase>(this: { new(...args:any[]): T }) {
+    static new<T extends ADbTableBase>(this: { new(...args:any[]): T }, subtable?: string) {
         const that = new this();
         that.#data = {};
         that.#prefetch_completed = true;
-        that.#data[(<any>this).__PK] = that.newID();
+        if(!that.__listTable)
+            that.#data[(<any>this).__PK] = that.newID();
+        that.#subtable = subtable;
+
         if(that.onCreate)
             that.onCreate();
         return that;
     }
 
-    static reindex<T extends ADbTableBase>(this: new() => T) {
-        DbMetadataInfo.getDbConn(<any>this.constructor).reindex(this.constructor.name, this);
+    static reindex<T extends ADbTableBase>(this: new() => T, subtable?: string) {
+        const table = this.constructor.name + (subtable ? '/' + subtable : '');
+        DbMetadataInfo.getDbConn(<any>this.constructor).reindex(table, this);
     }
 
     toJSON<T extends ADbTableBase>(this: T): Partial<T>;
@@ -55,6 +61,8 @@ export abstract class ADbTableBase {
     toObj() { return this.toJSON(); }
 
     async archive() {
+        if(this.__listTable)
+            throw new DbInvalidCallError('TypeDb: cannot delete/archive list type records');
         if(this.#isRowset)
             throw new DbInvalidCallError('TypeDb: cannot archive rowset');
         if(this.#history)
@@ -66,12 +74,14 @@ export abstract class ADbTableBase {
         this.#archived = true;
         if(this.onArchive)
             this.onArchive();
-        if(!await DbMetadataInfo.getDbConn(<new(...args:any[]) => this>this.constructor, 'archive').upsert(this.constructor.name, this, true, false, true))
+        if(!await DbMetadataInfo.getDbConn(<new(...args:any[]) => this>this.constructor, 'archive').upsert(this.__tableName, this, true, false, true))
             throw new DbResultError('TypeDb: writing to archive failed - inconsistent data?');
-        return await DbMetadataInfo.getDbConn(<new(...args:any[]) => this>this.constructor).delete(this.constructor.name, this);
+        return await DbMetadataInfo.getDbConn(<new(...args:any[]) => this>this.constructor).delete(this.__tableName, this);
     }
 
     async unarchive() {
+        if(this.__listTable)
+            throw new DbInvalidCallError('TypeDb: cannot unarchive list type datasets');
         if(this.#isRowset)
             throw new DbInvalidCallError('TypeDb: cannot archive rowset');
         if(!this.#archived)
@@ -81,12 +91,14 @@ export abstract class ADbTableBase {
         this.#archived = false;
         if(this.onUnarchive)
             this.onUnarchive();
-        if(!await DbMetadataInfo.getDbConn(<new(...args:any[]) => this>this.constructor).upsert(this.constructor.name, this, true, false, true))
+        if(!await DbMetadataInfo.getDbConn(<new(...args:any[]) => this>this.constructor).upsert(this.__tableName, this, true, false, true))
             throw new DbResultError('TypeDb: writing to db failed - inconsistent data?');
-        return await DbMetadataInfo.getDbConn(<new(...args:any[]) => this>this.constructor, 'archive').delete(this.constructor.name, this);
+        return await DbMetadataInfo.getDbConn(<new(...args:any[]) => this>this.constructor, 'archive').delete(this.__tableName, this);
     }
 
     async delete(): Promise<boolean> {
+        if(this.__listTable)
+            throw new DbInvalidCallError('TypeDb: cannot delete/archive list type records');
         if(this.#isRowset)
             throw new DbInvalidCallError('TypeDb: cannot archive rowset');
         if(this.#history)
@@ -97,7 +109,7 @@ export abstract class ADbTableBase {
             return this.archive();
         if(this.onDelete)
             this.onDelete();
-        return DbMetadataInfo.getDbConn(<new(...args:any[]) => this>this.constructor, this.#archived ? 'archive' : 'data').delete(this.constructor.name, this);
+        return DbMetadataInfo.getDbConn(<new(...args:any[]) => this>this.constructor, this.#archived ? 'archive' : 'data').delete(this.__tableName, this);
     }
 
     async save(): Promise<boolean> {
@@ -109,23 +121,25 @@ export abstract class ADbTableBase {
             throw new DbInvalidCallError('TypeDb: cannot modify archived entry of type ' + this.constructor.name);
         if(this.onSave)
             this.onSave();
-        if(DbMetadataInfo.classinfo[this.constructor.name].historydb)
-            await DbMetadataInfo.getDbConn(<new(...args:any[]) => this>this.constructor, 'history').upsert(this.constructor.name, this, false, true, false);
-        return await DbMetadataInfo.getDbConn(<new(...args:any[]) => this>this.constructor).upsert(this.constructor.name, this, false, false, false);
+        if(DbMetadataInfo.classinfo[this.constructor.name].historydb && !this.__listTable)
+            await DbMetadataInfo.getDbConn(<new(...args:any[]) => this>this.constructor, 'history').upsert(this.__tableName, this, false, true, false);
+        return await DbMetadataInfo.getDbConn(<new(...args:any[]) => this>this.constructor).upsert(this.__tableName, this, false, false, false);
     }
 
-    static fromObject<T extends ADbTableBase>(this: { new(...args:any[]): T}, data: Partial<T>, save: true, pk?: string): Promise<T | null>;
-    static fromObject<T extends ADbTableBase>(this: { new(...args:any[]): T}, data: Partial<T>, save?: false, pk?: string): T;
-    static fromObject<T extends ADbTableBase>(this: { new(...args:any[]): T}, data: Partial<T>, save = false, pk?: string): T {
-        const that = (<any>this).new();
+    static fromObject<T extends ADbTableBase>(this: { new(...args:any[]): T}, data: Partial<T>, options: { save: true, pk?: string, subtable?: string }|true): Promise<T | null>;
+    static fromObject<T extends ADbTableBase>(this: { new(...args:any[]): T}, data: Partial<T>, options?: { save?: false, pk?: string, subtable?: string }): T;
+    static fromObject<T extends ADbTableBase>(this: { new(...args:any[]): T}, data: Partial<T>, options: { save?: boolean, pk?: string, subtable?: string }|true = { save: false}): T | Promise<T | null> {
+        if(options === true)
+            options = { save: true };
+        const that = (<any>this).new(options.subtable);
         Object.entries(DbMetadataInfo.inheritInfo[this.name]).filter(([, meta]) => ![colType.fk, colType.pk].includes(meta.type)).forEach(([key]) => {
             if((<any>data)[key] !== undefined) {
                 (<any>that)[key] = (<any>data)[key];
             }
         });
-        if(pk)
-            that[(<any>this).__PK] = pk;
-        if(save)
+        if(options.pk)
+            that[(<any>this).__PK] = options.pk;
+        if(options.save)
             return that.save().then((success:boolean) => success ? that : null);
         return that;
     }
@@ -148,16 +162,18 @@ export abstract class ADbTableBase {
     }
 
     /* #region rowset */
-    static all<T extends ADbTableBase>(this: { new(...args:any[]): T }, archive?: boolean, history?: false):Fetchable<RowSet<T>>;
+    static all<T extends ADbTableBase>(this: { new(...args:any[]): T }, archive?: boolean, history?: false): Fetchable<RowSet<T>>;
     static all<T extends ADbTableBase>(this: { new(...args:any[]): T }, archive: false, history: boolean): Fetchable<RowSet<T>>;
-    static all<T extends ADbTableBase>(this: { new(...args:any[]): T }, archive = false, history = false): Fetchable<RowSet<T>> {
-        const queryRes = DbMetadataInfo.getDbConn(this, archive ? 'archive' : (history ? 'history' : 'data')).all(this.name);
+    static all<T extends ADbTableBase>(this: { new(...args:any[]): T }, subtable: string): Fetchable<RowSet<T>>;
+    static all<T extends ADbTableBase>(this: { new(...args:any[]): T }, archive: string|boolean = false, history = false): Fetchable<RowSet<T>> {
+        const table = this.name + (typeof archive == 'string' ? '/' + archive : '');
+        const queryRes = DbMetadataInfo.getDbConn(this, archive ? 'archive' : (history ? 'history' : 'data')).all(table);
         return (this as any).__makeDbRowSet(queryRes, archive, history);
     }
 
     sort<T extends ADbTableBase>(this: Fetchable<RowSet<T>> | RowSet<T>, cb: (elem1: T, elem2: T) => number): Fetchable<RowSet<T>> {
         const pr = this.#prefetch.then((that:any) => that?.map((x:any) => x).sort(cb).map((x:any) => x.__raw));
-        return (<any>this.constructor).__makeDbRowSet(pr, this.#archived, this.#history);
+        return (<any>this.constructor).__makeDbRowSet(pr, this.#archived, this.#history, this.#subtable);
     }
 
     map<T extends ADbTableBase, R>(this: Fetchable<RowSet<T>>, cb: (elem: T, index: number, all: RowSet<T>) => R | Promise<R>): R[] | Promise<R[]>;
@@ -214,6 +230,7 @@ export abstract class ADbTableBase {
             throw new DbInvalidCallError('TypeDb: filter can only be called on RowSets');
         const result = <T> new (<any>this.constructor);
         result.#isRowset = true;
+        result.#subtable = this.#subtable;
         result.#prefetch = (<Promise<RowSet<T>>>this.#prefetch).then(async (that) => {
             let j = 0;
             for(let i = 0; i < that.length; i++) {
@@ -285,6 +302,17 @@ export abstract class ADbTableBase {
         return this.#history;
     }
 
+    public get __subtable(): string | undefined {
+        return this.#subtable;
+    }
+
+    public get __listTable(): boolean {
+        return DbMetadataInfo.classinfo[this.constructor.name].list ?? false;
+    }
+
+    public get __tableName(): string {
+        return this.constructor.name + (this.__subtable ? '/' + this.__subtable : '');
+    }
 
     __getProperty(key: string) {
         if(this.#isRowset)
@@ -314,6 +342,8 @@ export abstract class ADbTableBase {
         const remoteClass = <any>DbMetadataInfo.classinfo[meta.fkTable!].constructor;
         if(this.#isRowset) {
             if(meta.fkType === FkType.local || meta.fkType === FkType.localSingle) {
+                if(this.#subtable)
+                    throw new DbInvalidCallError('TypeDB: local FK properties are not supported on subtable type datasets');
                 const ownPK = (<any>this.constructor).__PK;
                 const res = (<DbKeyQueryable<this, string>>remoteClass[meta.fkName + '_ID']).find(this.#prefetch.then(() => (<any>this).map((x:any) => x[ownPK])));
                 res.__base.#prefetch = res.__base.#prefetch.then((that:RowSet<ADbTableBase>) => {
@@ -340,6 +370,8 @@ export abstract class ADbTableBase {
             }
         } else {
             if(meta.fkType === FkType.localSingle) {
+                if(this.#subtable)
+                    throw new DbInvalidCallError('TypeDB: local FK properties are not supported on subtable type datasets');
                 const ownPK = (<any>this.constructor).__PK;
                 const res = (<DbKeyQueryable<this, string>>remoteClass[meta.fkName + '_ID']).findOne(this.#prefetch.then(() => this.#data[ownPK]));
                 res.__base.#prefetch = res.__base.#prefetch.then((that) => {
@@ -348,6 +380,8 @@ export abstract class ADbTableBase {
                 });
                 return res;
             } else if(meta.fkType === FkType.local) {
+                if(this.#subtable)
+                    throw new DbInvalidCallError('TypeDB: local FK properties are not supported on subtable type datasets');
                 const ownPK = (<any>this.constructor).__PK;
                 const res = (<DbKeyQueryable<this, string>>remoteClass[meta.fkName + '_ID']).find(this.#prefetch.then(() => this.#data[ownPK]));
                 res.__base.#prefetch = res.__base.#prefetch.then((that) => {
@@ -384,10 +418,11 @@ export abstract class ADbTableBase {
         return value;
     }
 
-    static __makeDbObj<T extends ADbTableBase>(this: new() => T, data: Promise<any>, archived = false, history = false): Fetchable<T> {
+    static __makeDbObj<T extends ADbTableBase>(this: new() => T, data: Promise<any>, archived = false, history = false, subtable: string): Fetchable<T> {
         const that = new this();
         that.#archived = archived;
         that.#history = history;
+        that.#subtable = subtable;
         that.#prefetch = data.then((row) => {
             if(!row) {
                 Object.defineProperty(that, '__fetchIsInvalid', { value: true, writable: false});
@@ -399,16 +434,18 @@ export abstract class ADbTableBase {
         return <Fetchable<T>> new Fetcher(that);
     }
 
-    static __makeDbRowSet<T extends ADbTableBase>(this: { new(...args:any[]): T }, data: Promise<any[]>, archived = false, history = false): Fetchable<RowSet<T>> {
+    static __makeDbRowSet<T extends ADbTableBase>(this: { new(...args:any[]): T }, data: Promise<any[]>, archived = false, history = false, subtable: string): Fetchable<RowSet<T>> {
         const that = new this();
         that.#isRowset = true;
         that.#archived = archived;
         that.#history = history;
+        that.#subtable = subtable;
         that.#prefetch = data.then((rows) => {
             Object.defineProperty(that, 'length', { value: rows.length, writable: false });
             for(let i = 0; i < rows.length; i++) {
                 const elem = new this();
                 elem.#data = rows[i];
+                elem.#subtable = subtable;
                 elem.#archived = archived;
                 Object.defineProperty(that, i.toString(), { value: elem, writable: false });
             }

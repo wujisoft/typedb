@@ -33,7 +33,7 @@ export interface MetaInfoEntry {
 export class DbMetadataInfo {
 
     static entrys: MetaInfoEntry[] = [];
-    static classinfo: { [clsName: string]: { constructor: { new(...args:any[]): ADbTableBase }, PK: string, dbconn: string, archivemode: "protected" | "active" | "none", archivedb: string, historydb?: string } } = {};
+    static classinfo: { [clsName: string]: { constructor: { new(...args:any[]): ADbTableBase }, list?: boolean, PK: string, dbconn: string, archivemode: "protected" | "active" | "none", archivedb: string, historydb?: string } } = {};
     static tableInfo: { [tableName: string]: { [colName: string]: MetaInfoEntry }} = {};
     static inheritInfo: { [tableName: string]: { [colName: string]: MetaInfoEntry }} = {};
 
@@ -62,6 +62,9 @@ export class DbMetadataInfo {
             const pk = Object.entries(this.inheritInfo[cls.name]).find(([, value]) => value.type === colType.pk);
             if(!pk)
                 throw new DbConfigError('TypeDB Object ' + cls.name + ' has no primary key');
+            if(!this.dbconns[this.classinfo[cls.name].dbconn])
+                throw new DbConfigError('TypeDB DbConn object ' + this.classinfo[cls.name].dbconn + ' is missing');
+            this.classinfo[cls.name].list = this.dbconns[this.classinfo[cls.name].dbconn].isListType ?? false;
             this.classinfo[cls.name].PK = pk?.[0];
         });
     }

@@ -18,10 +18,11 @@ beforeAll(async () => {
     await redis2.flushDb();
     await redis3.flushDb();    
 
-    DbMetadataInfo.init();
     DbMetadataInfo.addDbConn(new RedisMsgpackDbConn(redis));
     DbMetadataInfo.addDbConn(new RedisMsgpackDbConn(redis2), 'archive');
     DbMetadataInfo.addDbConn(new RedisMsgpackDbConn(redis3), 'history');
+    DbMetadataInfo.init();
+
 })
 
 afterAll(() => {

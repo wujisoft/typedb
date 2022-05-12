@@ -6,6 +6,7 @@ export * from './files/Errors';
 export * from './files/DbConn';
 export * from './files/RedisJsonDbConn';
 export * from './files/RedisMsgpackDbConn';
+export * from './files/RedisListJsonDbConn';
 export * from './files/DbQueryable';
 export * from './files/MetaInfo';
 export * from './files/DbTable';

@@ -7,6 +7,9 @@ type multiType = ReturnType<ReturnType<typeof createClient>['multi']>;
 
 export class RedisJsonDbConn implements IDbConn {
     prefix = () => '';
+
+    protected TABLE_PREFIX = 'TABLE/';
+
     readRedis: ReturnType<typeof createClient>;
     constructor(public redis: ReturnType<typeof createClient>, read?: ReturnType<typeof createClient>) {
         this.readRedis = read ?? redis;
@@ -18,7 +21,7 @@ export class RedisJsonDbConn implements IDbConn {
         ids = ids.filter((y) => y);
         if(!ids || ids.length < 1)
             return [];
-        const data = await this.readRedis.hmGet(prefix + 'TABLE/' + table, ids);
+        const data = await this.readRedis.hmGet(prefix + this.TABLE_PREFIX + table, ids);
         return data.map(row => this.decode(row));
     }
 
@@ -63,14 +66,14 @@ export class RedisJsonDbConn implements IDbConn {
     async all(table: string): Promise<any[]>
     {
         const prefix = this.prefix();
-        return Object.values(await this.readRedis.hGetAll(prefix + 'TABLE/' + table)).map(row => this.decode(row));
+        return Object.values(await this.readRedis.hGetAll(prefix + this.TABLE_PREFIX + table)).map(row => this.decode(row));
     }
 
     async watchAllIndexes(isoCli: ReturnType<typeof createClient>, ih: MetaInfoEntry[], prefix: string, table: string) {
         const idx = ih.filter(x => x.type === colType.key || x.type === colType.computed).map(x => prefix + 'INDEX/' + table + '/' + x.propertyKey);
         const fks = ih.filter(x => x.type === colType.fk && x.fkType === FkType.remote).map(x => prefix + 'INDEX/' + table + '/' + x.propertyKey.substring(1) + '_ID');
         const uidx = ih.filter(x => x.type === colType.unique || x.type === colType.computedUnique).map(x => prefix + 'UINDEX/' + table + '/' + x.propertyKey);
-        await isoCli.watch([prefix + 'TABLE/' + table, ...idx, ...uidx, ...fks]);
+        await isoCli.watch([table, ...idx, ...uidx, ...fks]);
     }
 
     delIndexElement(multi: multiType, table: string, element: MetaInfoEntry, orig: any, prefix: string, pk: string): multiType {
@@ -137,13 +140,13 @@ export class RedisJsonDbConn implements IDbConn {
         do {
             try {
                 await this.redis.executeIsolated(async (isoCli) => {
-                    await this.watchAllIndexes(isoCli, ih, prefix, table);
-                    const orig = this.decode(await isoCli.hGet(prefix + 'TABLE/' + table, (<any>obj)[pk]));
+                    await this.watchAllIndexes(isoCli, ih, prefix, prefix + this.TABLE_PREFIX + table);
+                    const orig = this.decode(await isoCli.hGet(prefix + this.TABLE_PREFIX + table, (<any>obj)[pk]));
                     let multi = isoCli.multi();
                     ih.forEach(element => {
                         multi = this.delIndexElement(multi, table, element, orig, prefix, pk);
                     });
-                    multi = multi.hDel(prefix + 'TABLE/' + table, orig[pk]);
+                    multi = multi.hDel(prefix + this.TABLE_PREFIX + table, orig[pk]);
                     return await multi.exec();
                 });
                 return true;
@@ -164,8 +167,8 @@ export class RedisJsonDbConn implements IDbConn {
         do {
             try {
                 await this.redis.executeIsolated(async (isoCli) => {
-                    await this.watchAllIndexes(isoCli, ih, prefix, table);
-                    const orig = this.decode(await isoCli.hGet(prefix + 'TABLE/' + table, (<any>obj)[pk]));
+                    await this.watchAllIndexes(isoCli, ih, prefix, prefix + this.TABLE_PREFIX + table);
+                    const orig = this.decode(await isoCli.hGet(prefix + this.TABLE_PREFIX + table, (<any>obj)[pk]));
                     if(orig && nx)
                         return false;
                     let multi = isoCli.multi();
@@ -176,7 +179,7 @@ export class RedisJsonDbConn implements IDbConn {
                                 multi = multi.hSet(prefix + 'INDEX/' + table + '/' + element.propertyKey, newPK + String.fromCharCode(1) + (<any>obj)[pk] + String.fromCharCode(0) + (<any>obj)[element.propertyKey], newPK);
                             }
                         });
-                        multi = multi.hSet(prefix + 'TABLE/' + table, newPK, this.encode(obj, { '$$PK': newPK, '$$timestamp': +new Date() }));
+                        multi = multi.hSet(prefix + this.TABLE_PREFIX + table, newPK, this.encode(obj, { '$$PK': newPK, '$$timestamp': +new Date() }));
                     } else {
                         ih.forEach(element => {
                             if(orig) {
@@ -184,7 +187,7 @@ export class RedisJsonDbConn implements IDbConn {
                             }
                             multi = this.addIndexElement(multi, table, element, obj, prefix, pk);
                         });
-                        multi = multi.hSet(prefix + 'TABLE/' + table, (<any>obj)[pk], this.encode(obj));
+                        multi = multi.hSet(prefix + this.TABLE_PREFIX + table, (<any>obj)[pk], this.encode(obj));
                     }
                     return await multi.exec();
                 });
@@ -203,13 +206,13 @@ export class RedisJsonDbConn implements IDbConn {
         do {
             try {
                 await this.redis.executeIsolated(async (isoCli) => {
-                    await this.watchAllIndexes(isoCli, ih, prefix, table);
+                    await this.watchAllIndexes(isoCli, ih, prefix, prefix + this.TABLE_PREFIX + table);
                     let multi = isoCli.multi();
                     let i: string[] = <any>await isoCli.keys(prefix + 'INDEX/' + table + '/*');
                     i.forEach((e) => multi = multi.del(e));
                     i = <any>await isoCli.keys(prefix + 'UINDEX/' + table + '/*');
                     i.forEach((e) => multi = multi.del(e));
-                    const data = <any>await isoCli.hGetAll(prefix + 'TABLE/' + table);
+                    const data = await (<any>ctr).__makeDbRowSet(this.all(table), false, false, undefined);
                     for(const obj of data) {
                         ih.forEach(element => {
                             multi = this.addIndexElement(multi, table, element, obj, prefix, pk);
