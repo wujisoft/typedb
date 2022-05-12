@@ -157,8 +157,13 @@ export abstract class ADbTableBase {
         return this;
     }
 
-    export<T extends ADbTableBase>(this: T, keys: OwnProerties<T>[], into: Partial<T> = {}): Partial<T> {
-        return keys.reduce((r, k) => { r[k] = this[k]; return r; }, into);
+    export<T extends ADbTableBase>(this: T, keys: OwnProerties<T>[], into?: Partial<T>): Partial<T>;
+    export<T extends ADbTableBase>(this: RowSet<T>, keys: OwnProerties<T>[]): Partial<T>[];
+    export<T extends ADbTableBase>(this: T | RowSet<T>, keys: OwnProerties<T>[], into: Partial<T> = {}): Partial<T> | Partial<T>[] {
+        if(this.#isRowset)
+            return (<RowSet<T>>this).map(x => x.export(keys));
+        else
+            return keys.reduce((r, k) => { r[k] = this[k]; return r; }, into);
     }
 
     /* #region rowset */
