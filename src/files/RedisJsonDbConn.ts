@@ -186,6 +186,12 @@ export class RedisJsonDbConn implements IDbConn {
                         const newPK = uuid();
                         ih.forEach(element => {
                             if([colType.key, colType.computed, colType.unique, colType.computedUnique, colType.pk].includes(element.type) && (<any>obj)[element.propertyKey] !== undefined) {
+                                if(element.isArray) {
+                                    (<any>obj)[element.propertyKey]?.forEach((entry:string) => {
+                                        if(entry)
+                                            multi = multi.hSet(prefix + 'INDEX/' + table + '/' + element.propertyKey, newPK + String.fromCharCode(1) + (<any>obj)[pk] + String.fromCharCode(0) + entry, newPK);
+                                    })
+                                } else 
                                 multi = multi.hSet(prefix + 'INDEX/' + table + '/' + element.propertyKey, newPK + String.fromCharCode(1) + (<any>obj)[pk] + String.fromCharCode(0) + (<any>obj)[element.propertyKey], newPK);
                             }
                         });
