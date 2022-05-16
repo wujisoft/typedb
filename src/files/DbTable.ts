@@ -288,7 +288,7 @@ export abstract class ADbTableBase {
     public get __raw() {
         return {
             ...this.#data,
-            ...this.__computedData
+            //...this.__computedData
         };
     }
 

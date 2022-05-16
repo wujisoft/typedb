@@ -77,10 +77,17 @@ export class RedisJsonDbConn implements IDbConn {
     }
 
     delIndexElement(multi: multiType, table: string, element: MetaInfoEntry, orig: any, prefix: string, pk: string): multiType {
+        if(!orig || (
+            ![colType.fk, colType.computed, colType.computedUnique].includes(element.type) 
+            && 
+            orig[element.propertyKey] === undefined
+        ))
+            return multi;
         if(element.type === colType.key || element.type === colType.computed) {
             if(element.isArray && Array.isArray(orig[element.propertyKey])) {
                 orig[element.propertyKey].forEach((entry: string) => {
-                    multi = multi.hDel(prefix + 'INDEX/' + table + '/' + element.propertyKey, orig[pk] + String.fromCharCode(0) + entry);
+                    if(entry !== undefined)
+                        multi = multi.hDel(prefix + 'INDEX/' + table + '/' + element.propertyKey, orig[pk] + String.fromCharCode(0) + entry);
                 });
                 return multi;
             }
@@ -89,7 +96,8 @@ export class RedisJsonDbConn implements IDbConn {
         if(element.type === colType.unique || element.type === colType.computedUnique) {
             if(element.isArray && Array.isArray(orig[element.propertyKey])) {
                 orig[element.propertyKey].forEach((entry: string) => {
-                    multi = multi.hDel(prefix + 'UINDEX/' + table + '/' + element.propertyKey, entry);
+                    if(entry !== undefined)
+                        multi = multi.hDel(prefix + 'UINDEX/' + table + '/' + element.propertyKey, entry);
                 });
                 return multi;
             }
@@ -106,7 +114,8 @@ export class RedisJsonDbConn implements IDbConn {
         if((element.type === colType.key || element.type === colType.computed) && (<any>obj)[element.propertyKey] !== undefined) {
             if(element.isArray) {
                 (<any>obj)[element.propertyKey]?.forEach((entry: string) => {
-                    multi = multi.hSet(prefix + 'INDEX/' + table + '/' + element.propertyKey, (<any>obj)[pk] + String.fromCharCode(0) + entry, (<any>obj)[pk]);
+                    if(entry !== undefined)
+                        multi = multi.hSet(prefix + 'INDEX/' + table + '/' + element.propertyKey, (<any>obj)[pk] + String.fromCharCode(0) + entry, (<any>obj)[pk]);
                 });
                 return multi;
             }
@@ -115,7 +124,8 @@ export class RedisJsonDbConn implements IDbConn {
         if((element.type === colType.unique || element.type === colType.computedUnique) && (<any>obj)[element.propertyKey] !== undefined) {
             if(element.isArray) {
                 (<any>obj)[element.propertyKey]?.forEach((entry: string) => {
-                    multi = multi.hSet(prefix + 'UINDEX/' + table + '/' + element.propertyKey, entry, (<any>obj)[pk]);
+                    if(entry !== undefined)
+                        multi = multi.hSet(prefix + 'UINDEX/' + table + '/' + element.propertyKey, entry, (<any>obj)[pk]);
                 });
                 return multi;
             }
@@ -141,12 +151,12 @@ export class RedisJsonDbConn implements IDbConn {
             try {
                 await this.redis.executeIsolated(async (isoCli) => {
                     await this.watchAllIndexes(isoCli, ih, prefix, prefix + this.TABLE_PREFIX + table);
-                    const orig = this.decode(await isoCli.hGet(prefix + this.TABLE_PREFIX + table, (<any>obj)[pk]));
+                    const orig = <ADbTableBase> await (<any>obj).constructor.__makeDbObj(this.get(table, [(<any>obj)[pk]]).then(x => x[0]), false, false, undefined);
                     let multi = isoCli.multi();
                     ih.forEach(element => {
                         multi = this.delIndexElement(multi, table, element, orig, prefix, pk);
                     });
-                    multi = multi.hDel(prefix + this.TABLE_PREFIX + table, orig[pk]);
+                    multi = multi.hDel(prefix + this.TABLE_PREFIX + table, (<any>orig)[pk]);
                     return await multi.exec();
                 });
                 return true;
@@ -168,7 +178,7 @@ export class RedisJsonDbConn implements IDbConn {
             try {
                 await this.redis.executeIsolated(async (isoCli) => {
                     await this.watchAllIndexes(isoCli, ih, prefix, prefix + this.TABLE_PREFIX + table);
-                    const orig = this.decode(await isoCli.hGet(prefix + this.TABLE_PREFIX + table, (<any>obj)[pk]));
+                    const orig = <ADbTableBase> await (<any>obj).constructor.__makeDbObj(this.get(table, [(<any>obj)[pk]]).then(x => x[0]), false, false, undefined);
                     if(orig && nx)
                         return false;
                     let multi = isoCli.multi();
@@ -189,7 +199,7 @@ export class RedisJsonDbConn implements IDbConn {
                         });
                         multi = multi.hSet(prefix + this.TABLE_PREFIX + table, (<any>obj)[pk], this.encode(obj));
                     }
-                    return await multi.exec();
+                        return await multi.exec();
                 });
                 return true;
             // eslint-disable-next-line no-empty
