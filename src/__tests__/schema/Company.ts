@@ -2,6 +2,13 @@ import { DbComputed } from "../../files/MetaInfo";
 import { DbCol, DbKey, DbRow, DbUnique, FK, FkType,DbUniqueQueryable, DbKeyQueryable, Fetchable } from "../../index";
 import { DbTable } from "./DbTable";
 import { Owner } from "./Owner";
+import { MPType } from 'msgpackstream';
+
+@MPType
+export class SubCompanyData {
+    doSomething() { return 5 }
+    data = 31;
+}
 
 @DbRow({archivemode: "active", historydb: "history"})
 export class Company extends DbTable {
@@ -38,5 +45,8 @@ export class Company extends DbTable {
 
     @DbComputed(() => ['a', 'b', 'c'], false, true)
     compTestArr!: string[];
+
+    @DbCol()
+    subData!: SubCompanyData;
 
 }

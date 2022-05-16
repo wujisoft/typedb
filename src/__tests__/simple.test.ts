@@ -1,6 +1,6 @@
 import { createClient } from 'redis';
 import { DbInvalidCallError, DbMetadataInfo, DbResultError, RedisMsgpackDbConn } from '..';
-import { Company } from './schema/Company';
+import { Company, SubCompanyData } from './schema/Company';
 import { Owner } from './schema/Owner';
 
 type RedisClient = ReturnType<typeof createClient>;
@@ -368,5 +368,13 @@ test('arrayIndex', async () => {
     expect(d?.length).toBe(5);
 });
 
+test('objectReconstruction', async () => {
+    const c = Company.new();
+    c.subData = new SubCompanyData();
+    await c.save();
 
+    const d = <Company>await Company.ID.get(c.ID);
+    expect(d.subData?.data).toBe(31);
+    expect(d.subData?.doSomething?.()).toBe(5);
+})
 
