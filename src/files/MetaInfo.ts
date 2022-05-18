@@ -90,7 +90,7 @@ export class DbMetadataInfo {
         } else if(meta.type === colType.computed || meta.type === colType.computedUnique) {
             Object.defineProperty(target, meta.propertyKey, {
                 // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-                get: () => meta.func!(this)
+                get: function () { return meta.func!.apply(this, this) }
             });
         } else {
             Object.defineProperty(target, meta.propertyKey, {
