@@ -37,6 +37,7 @@ test("Create new DB entry", async () => {
     c.address = 'Nullstr 5';
     c.value = 42;
     c.volatileProp = "test";
+    console.log(c.companyNameComputed);
     expect(await c.save()).toBe(true);
 
     const b = Company.new();
@@ -378,3 +379,8 @@ test('objectReconstruction', async () => {
     expect(d.subData?.doSomething?.()).toBe(5);
 })
 
+test('computedIndex with object reference', async() => {
+    const c = Company.new();
+    c.companyName = 'ComputedTest';
+    expect(c.companyNameComputed).toBe('XXComputedTest');
+})

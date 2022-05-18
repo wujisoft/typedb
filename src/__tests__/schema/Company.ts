@@ -46,6 +46,9 @@ export class Company extends DbTable {
     @DbComputed(() => ['a', 'b', 'c'], false, true)
     compTestArr!: string[];
 
+    @DbComputed((obj: Company) => 'XX'+obj.companyName)
+    companyNameComputed!: string[];
+
     @DbCol()
     subData!: SubCompanyData;
 
