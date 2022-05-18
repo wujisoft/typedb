@@ -42,7 +42,7 @@ export abstract class ADbTableBase {
 
     static reindex<T extends ADbTableBase>(this: new() => T, subtable?: string) {
         const table = this.constructor.name + (subtable ? '/' + subtable : '');
-        DbMetadataInfo.getDbConn(<any>this.constructor).reindex(table, this);
+        DbMetadataInfo.getDbConn(<any>this).reindex(table, this);
     }
 
     toJSON<T extends ADbTableBase>(this: T): Partial<T>;
