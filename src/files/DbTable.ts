@@ -41,7 +41,7 @@ export abstract class ADbTableBase {
     }
 
     static reindex<T extends ADbTableBase>(this: new() => T, subtable?: string) {
-        const table = this.constructor.name + (subtable ? '/' + subtable : '');
+        const table = this.name + (subtable ? '/' + subtable : '');
         DbMetadataInfo.getDbConn(<any>this).reindex(table, this);
     }
 
