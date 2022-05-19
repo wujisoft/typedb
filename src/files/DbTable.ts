@@ -132,7 +132,7 @@ export abstract class ADbTableBase {
         if(options === true)
             options = { save: true };
         const that = (<any>this).new(options.subtable);
-        Object.entries(DbMetadataInfo.inheritInfo[this.name]).filter(([, meta]) => ![colType.fk, colType.pk].includes(meta.type)).forEach(([key]) => {
+        Object.entries(DbMetadataInfo.inheritInfo[this.name]).filter(([, meta]) => ![colType.computed, colType.computedUnique, colType.fk, colType.pk].includes(meta.type)).forEach(([key]) => {
             if((<any>data)[key] !== undefined) {
                 (<any>that)[key] = (<any>data)[key];
             }
