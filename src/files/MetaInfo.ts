@@ -80,7 +80,8 @@ export class DbMetadataInfo {
                 });
                 Object.defineProperty(target, meta.propertyKey.substring(1) + '_ID', {
                     get: function () { return this.__getProperty(meta.propertyKey.substring(1) + '_ID'); },
-                    set: function (value) { this.__setProperty(meta.propertyKey.substring(1) + '_ID', value); }
+                    set: function (value) { this.__setProperty(meta.propertyKey.substring(1) + '_ID', value); },
+                    enumerable: true
                 });
             } else {
                 Object.defineProperty(target, meta.propertyKey.substring(1), {

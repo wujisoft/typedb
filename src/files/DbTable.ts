@@ -446,7 +446,7 @@ export abstract class ADbTableBase {
         that.#history = history;
         that.#subtable = subtable;
         that.#prefetch = data.then((rows) => {
-            Object.defineProperty(that, 'length', { value: rows.length, writable: false });
+            Object.defineProperty(that, 'length', { value: rows.length, writable: false, enumerable: true });
             for(let i = 0; i < rows.length; i++) {
                 const elem = new this();
                 elem.#data = rows[i];
