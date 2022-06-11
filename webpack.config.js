@@ -50,7 +50,7 @@ module.exports = {
     },
     plugins: [
         new DtsBundlePlugin({
-            name: 'typedb',
+            name: '@gymcore/typedb',
             main: 'dist/index.d.ts',
             out: 'typedb.d.ts',
             removeSource: true,
