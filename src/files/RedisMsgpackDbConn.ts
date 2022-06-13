@@ -1,5 +1,5 @@
 import { ADbTableBase, RedisJsonDbConn } from "..";
-import { MsgPackEncoder, MsgPackDecoder } from "msgpackstream";
+import { MsgPackEncoder, MsgPackDecoder } from "@gymcore/msgpackstream";
 
 export class RedisMsgpackDbConn extends RedisJsonDbConn {
     #msgpack_enc: MsgPackEncoder = new MsgPackEncoder({EnablePacketTable: false, EnableStreamTable: false});

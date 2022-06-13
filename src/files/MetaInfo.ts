@@ -16,6 +16,7 @@ export enum colType {
 export const enum FkType {
     local,
     remote,
+    remoteMulti,
     localSingle,
 }
 
@@ -73,7 +74,7 @@ export class DbMetadataInfo {
             Object.defineProperty(target, meta.propertyKey, {
                 get: function () { return this.__getFKProperty(meta.propertyKey); }
             });
-            if(meta.fkType === FkType.remote) {
+            if(meta.fkType === FkType.remote || meta.fkType === FkType.remoteMulti) {
                 Object.defineProperty(target, meta.propertyKey.substring(1), {
                     set: function (value) { this.__setFKProperty(meta.propertyKey, value); },
                     get: function () { return this.__getFKCacheProperty(meta.propertyKey.substring(1)); }
@@ -110,7 +111,7 @@ export class DbMetadataInfo {
         if(meta.type === colType.unique || meta.type === colType.computedUnique) {
             (<any>target.constructor)[meta.propertyKey] = new DbUniqueQueryable(<{new(...args:any[]):ADbTableBase}>target.constructor, meta.propertyKey);
         }
-        if(meta.type === colType.fk && meta.fkType === FkType.remote) {
+        if(meta.type === colType.fk && (meta.fkType === FkType.remote || meta.fkType === FkType.remoteMulti)) {
             const fkid_name = meta.propertyKey.substring(1) + '_ID';
             (<any>target.constructor)[fkid_name] = new DbKeyQueryable(<{new(...args:any[]):ADbTableBase}>target.constructor, fkid_name);
         }
@@ -176,11 +177,12 @@ export function DbRow(params: {dbconn?: string, archivedb?: string, archivemode?
 }
 
 export function FK(fktype: FkType.remote, className?: string): <T extends ADbTableBase> (target: T, propertyKey: string) => void;
+export function FK(fktype: FkType.remoteMulti, className?: string): <T extends ADbTableBase> (target: T, propertyKey: string) => void;
 export function FK(fktype: FkType.local, className?: string, remoteProperty?: string): <T extends ADbTableBase> (target: T, propertyKey: string) => void;
 export function FK(fktype: FkType.localSingle, className?: string, remoteProperty?: string): <T extends ADbTableBase> (target: T, propertyKey: string) => void;
 export function FK(fkType: FkType, className?: string, remoteProperty?: string) {
     return <T extends ADbTableBase> (target: T, propertyKey: string) => {
-        DbMetadataInfo.entrys.push({target, propertyKey, type: colType.fk, fkTable: className ?? propertyKey.substring(1), fkName: remoteProperty ?? target.constructor.name, fkType });
+        DbMetadataInfo.entrys.push({target, propertyKey, type: colType.fk, fkTable: className ?? propertyKey.substring(1), fkName: remoteProperty ?? target.constructor.name, fkType, isArray: fkType === FkType.remoteMulti });
     };
 }
 

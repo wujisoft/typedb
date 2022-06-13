@@ -1,4 +1,5 @@
 import { colType, DbInvalidCallError, DbKeyQueryable, DbMetadataInfo, DbPKQueryable, DbResultError, Fetchable, Fetcher, FkType } from "..";
+import { MetaInfoEntry } from "./MetaInfo";
 
 export type NonFunctionPropertyNames<T> = {
     // eslint-disable-next-line @typescript-eslint/ban-types
@@ -16,6 +17,7 @@ export abstract class ADbTableBase {
     #fkcache: any = {};
     #archived = false;
     #history = false;
+    #rsMode: 'add' | 'remove' | undefined;
 
     #subtable?: string;
 
@@ -362,7 +364,7 @@ export abstract class ADbTableBase {
                 return res;
             } else {
                 const remotePK = remoteClass.__PK;
-                const res = (<DbPKQueryable<this,string>>remoteClass[remotePK]).getMany(this.#prefetch.then(() => (<any>this).map((x:any) => x[meta.propertyKey.substring(1) + '_ID'])));
+                const res = (<DbPKQueryable<this,string>>remoteClass[remotePK]).getMany(this.#prefetch.then(() => (<any>this).map((x:any) => x[meta.propertyKey.substring(1) + '_ID']).flat(1)));
                 res.__base.#prefetch = res.__base.#prefetch.then((that:RowSet<ADbTableBase>) => {
                     this.#fkcache[key.substring(1)] = that;
                     const idx = Object.fromEntries(that.map((x:any) => [x[remotePK], x ]));
@@ -394,6 +396,16 @@ export abstract class ADbTableBase {
                     return <any>that;
                 });
                 return res;
+            } else if(meta.fkType === FkType.remoteMulti) {
+                const remotePK = remoteClass.__PK;
+                const res = (<DbPKQueryable<this,string>>remoteClass[remotePK]).getMany(
+                    this.#prefetch.then((x:any) =>x[meta.propertyKey.substring(1) + '_ID'])
+                );
+                res.__base.#prefetch = res.__base.#prefetch.then((that) => {
+                    this.#fkcache[key.substring(1)] = that;
+                    return <any>that;
+                });
+                return res;
             } else {
                 const remotePK = remoteClass.__PK;
                 const res = (<DbPKQueryable<this,string>>remoteClass[remotePK]).get(this.#prefetch.then(() => this.#data[meta.propertyKey.substring(1) + '_ID']));
@@ -414,13 +426,28 @@ export abstract class ADbTableBase {
         const meta = DbMetadataInfo.inheritInfo[this.constructor.name][key];
         if(meta.fkType === FkType.local)
             throw new DbInvalidCallError('TypeDb: ForeignKeys need to be set on remote end of relation');
-        if(value === undefined || value === null)
-            return (<any>this)[key.substring(1) + '_ID'] = undefined;
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        const remoteClass = <any>DbMetadataInfo.classinfo[meta.fkTable!].constructor;
-        const remotePK = remoteClass.__PK;
-        (<any>this)[key.substring(1) + '_ID'] = value[remotePK];
-        return value;
+        if(meta.fkType === FkType.remoteMulti) {
+            const remoteClass = <any>DbMetadataInfo.classinfo[meta.fkTable!].constructor;
+            const remotePK = remoteClass.__PK;
+            if(value.#rsMode === 'add') {
+                if(!(<any>this)[key.substring(1) + '_ID'])
+                    (<any>this)[key.substring(1) + '_ID'] = [];
+                (<any>this)[key.substring(1) + '_ID'].push(value[remotePK]);
+            } else if(value.#rsMode === 'remove') {
+                (<any>this)[key.substring(1) + '_ID'] = (<any>this)[key.substring(1) + '_ID'].filter((x:string) => x !== value[remotePK]);
+            } else {
+                throw new DbInvalidCallError('TypeDB: RemoteMulti FK write without mode selection - use addTo() / removeFrom()');
+            }
+            return undefined;
+        } else {
+            if(value === undefined || value === null)
+                return (<any>this)[key.substring(1) + '_ID'] = undefined;
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+            const remoteClass = <any>DbMetadataInfo.classinfo[meta.fkTable!].constructor;
+            const remotePK = remoteClass.__PK;
+            (<any>this)[key.substring(1) + '_ID'] = value[remotePK];
+            return value;
+        }
     }
 
     static __makeDbObj<T extends ADbTableBase>(this: new() => T, data: Promise<any>, archived = false, history = false, subtable: string): Fetchable<T> {
@@ -445,7 +472,7 @@ export abstract class ADbTableBase {
         that.#archived = archived;
         that.#history = history;
         that.#subtable = subtable;
-        that.#prefetch = data.then((rows) => {
+        that.#prefetch = data.then(async (rows) => {
             rows = rows.filter(x => x);
             Object.defineProperty(that, 'length', { value: rows.length, writable: false, enumerable: true });
             for(let i = 0; i < rows.length; i++) {
@@ -459,6 +486,15 @@ export abstract class ADbTableBase {
             return that;
         });
         return <Fetchable<RowSet<T>>> new Fetcher(that);
+    }
+
+    addTo<T extends ADbTableBase>(this: T): RowSet<T> {
+        this.#rsMode = 'add';
+        return <RowSet<T>><unknown>this;
+    }
+    removeFrom<T extends ADbTableBase>(this: T): RowSet<T> {
+        this.#rsMode = 'remove';
+        return <RowSet<T>><unknown>this;
     }
 }
 

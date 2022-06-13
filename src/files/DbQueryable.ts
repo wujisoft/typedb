@@ -1,7 +1,7 @@
 import { ADbTableBase, DbResultError, Fetchable } from "../index";
 import { RowSet } from "./DbTable";
 import { DbInvalidCallError } from "..";
-import { DbMetadataInfo } from "./MetaInfo";
+import { DbMetadataInfo, MetaInfoEntry } from "./MetaInfo";
 
 export class DbQueryable<TTable extends ADbTableBase, TColumn> {
     constructor(public cls: new() => TTable , public prop: string, protected historymode = false) {}

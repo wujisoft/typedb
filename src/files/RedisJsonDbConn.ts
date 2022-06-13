@@ -71,7 +71,7 @@ export class RedisJsonDbConn implements IDbConn {
 
     async watchAllIndexes(isoCli: ReturnType<typeof createClient>, ih: MetaInfoEntry[], prefix: string, table: string) {
         const idx = ih.filter(x => x.type === colType.key || x.type === colType.computed).map(x => prefix + 'INDEX/' + table + '/' + x.propertyKey);
-        const fks = ih.filter(x => x.type === colType.fk && x.fkType === FkType.remote).map(x => prefix + 'INDEX/' + table + '/' + x.propertyKey.substring(1) + '_ID');
+        const fks = ih.filter(x => x.type === colType.fk && (x.fkType === FkType.remote || x.fkType === FkType.remoteMulti)).map(x => prefix + 'INDEX/' + table + '/' + x.propertyKey.substring(1) + '_ID');
         const uidx = ih.filter(x => x.type === colType.unique || x.type === colType.computedUnique).map(x => prefix + 'UINDEX/' + table + '/' + x.propertyKey);
         await isoCli.watch([table, ...idx, ...uidx, ...fks]);
     }
@@ -104,7 +104,14 @@ export class RedisJsonDbConn implements IDbConn {
             return multi.hDel(prefix + 'UINDEX/' + table + '/' + element.propertyKey, orig[element.propertyKey]);
         }
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        if(element.type === colType.fk && element.fkType! === FkType.remote) {
+        if(element.type === colType.fk && (element.fkType! === FkType.remote || element.fkType! === FkType.remoteMulti)) {
+            if(element.isArray && Array.isArray(orig[element.propertyKey.substring(1) + '_ID'])) {
+                orig[element.propertyKey.substring(1) + '_ID'].forEach((entry: string) => {
+                    if(entry !== undefined)
+                        multi = multi.hDel(prefix + 'INDEX/' + table + '/' + element.propertyKey.substring(1) + '_ID', orig[pk] + String.fromCharCode(0) + entry);
+                });
+                return multi;
+            }
             return multi.hDel(prefix + 'INDEX/' + table + '/' + element.propertyKey.substring(1) + '_ID', orig[pk] + String.fromCharCode(0) + orig[element.propertyKey.substring(1) + '_ID']);
         }
         return multi;
@@ -132,8 +139,17 @@ export class RedisJsonDbConn implements IDbConn {
             else return multi.hSet(prefix + 'UINDEX/' + table + '/' + element.propertyKey, (<any>obj)[element.propertyKey], (<any>obj)[pk]);
         }
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        if(element.type === colType.fk && element.fkType! === FkType.remote && (<any>obj)[element.propertyKey.substring(1) + '_ID'] !== undefined) {
-            return multi.hSet(
+        if(element.type === colType.fk && (element.fkType! === FkType.remote || element.fkType! === FkType.remoteMulti) && (<any>obj)[element.propertyKey.substring(1) + '_ID'] !== undefined) {
+            if(element.isArray) {
+                (<any>obj)[element.propertyKey.substring(1) + '_ID'].forEach((entry: string) => {
+                    if(entry !== undefined)
+                        multi = multi.hSet(
+                            prefix + 'INDEX/' + table + '/' + element.propertyKey.substring(1) + '_ID',
+                            (<any>obj)[pk] + String.fromCharCode(0) + entry,
+                            (<any>obj)[pk]);
+                });
+            }
+            else return multi.hSet(
                 prefix + 'INDEX/' + table + '/' + element.propertyKey.substring(1) + '_ID',
                 (<any>obj)[pk] + String.fromCharCode(0) + (<any>obj)[element.propertyKey.substring(1) + '_ID'],
                 (<any>obj)[pk]);
