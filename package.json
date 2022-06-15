@@ -4,7 +4,7 @@
     "access": "public",
     "registry": "http://git01.ad.gymcore.ag/npm/"
   },
-  "version": "0.1.2",
+  "version": "0.1.4",
   "description": "",
   "main": "dist/typedb.js",
   "types": "dist/typedb.d.ts",
@@ -46,7 +46,7 @@
     "webpack-dts-bundle": "^0.0.2"
   },
   "dependencies": {
-    "@gymcore/msgpackstream": "^0.1.0",
+    "@gymcore/msgpackstream": "^0.1.1",
     "reflect-metadata": "^0.1.13"
   },
   "optionalDependencies": {
