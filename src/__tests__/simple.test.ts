@@ -384,3 +384,10 @@ test('computedIndex with object reference', async() => {
     c.companyName = 'ComputedTest';
     expect(c.companyNameComputed).toBe('XXComputedTest');
 })
+
+test('don\'t update ID in import', async() => {
+    const c = Company.new();
+    const id = c.ID;
+    c.import({ID: 'bla'})
+    expect(c.ID).not.toBe(id);
+})

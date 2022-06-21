@@ -6,7 +6,8 @@ export type NonFunctionPropertyNames<T> = {
     [K in keyof T]: T[K] extends Function ? never : K
 }[keyof T];
 export type NonFunctionProperties<T> = Pick<T, NonFunctionPropertyNames<T>>;
-export type OwnProerties<T> = keyof NonFunctionProperties<Omit<T, keyof ADbTableBase>>;
+export type OwnProperties<T> = keyof NonFunctionProperties<Omit<T, keyof ADbTableBase>>;
+export type OwnProerties<T> = OwnProperties<T>;
 
 export abstract class ADbTableBase {
     #prefetch: Promise<this> = Promise.resolve(this);
@@ -146,10 +147,10 @@ export abstract class ADbTableBase {
         return that;
     }
 
-    import<T extends ADbTableBase>(this: T | RowSet<T>, values: Partial<T>, keys?: OwnProerties<T>[], save?: false): T;
-    import<T extends ADbTableBase>(this: T | RowSet<T>, values: Partial<T>, keys?: OwnProerties<T>[], save?: true): Promise<boolean>;
-    import<T extends ADbTableBase>(this: T | RowSet<T>, values: Partial<T>, keys?: OwnProerties<T>[], save = false): T | Promise<boolean> {
-        (keys ?? <(keyof T)[]>Object.keys(values)).forEach((k) => {
+    import<T extends ADbTableBase>(this: T | RowSet<T>, values: Partial<T>, keys?: OwnProperties<T>[], save?: false): T;
+    import<T extends ADbTableBase>(this: T | RowSet<T>, values: Partial<T>, keys?: OwnProperties<T>[], save?: true): Promise<boolean>;
+    import<T extends ADbTableBase>(this: T | RowSet<T>, values: Partial<T>, keys?: OwnProperties<T>[], save = false): T | Promise<boolean> {
+        (keys ?? <(keyof T)[]>Object.keys(values).filter(v => v !== (<any>this).__PK)).forEach((k) => {
             if(values[k] !== undefined)
                 // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
                 this[k] = values[k]!;
@@ -159,9 +160,9 @@ export abstract class ADbTableBase {
         return this;
     }
 
-    export<T extends ADbTableBase>(this: T, keys: OwnProerties<T>[], into?: Partial<T>): Partial<T>;
-    export<T extends ADbTableBase>(this: RowSet<T>, keys: OwnProerties<T>[]): Partial<T>[];
-    export<T extends ADbTableBase>(this: T | RowSet<T>, keys: OwnProerties<T>[], into: Partial<T> = {}): Partial<T> | Partial<T>[] {
+    export<T extends ADbTableBase>(this: T, keys: OwnProperties<T>[], into?: Partial<T>): Partial<T>;
+    export<T extends ADbTableBase>(this: RowSet<T>, keys: OwnProperties<T>[]): Partial<T>[];
+    export<T extends ADbTableBase>(this: T | RowSet<T>, keys: OwnProperties<T>[], into: Partial<T> = {}): Partial<T> | Partial<T>[] {
         if(this.#isRowset)
             return (<RowSet<T>>this).map(x => x.export(keys));
         else

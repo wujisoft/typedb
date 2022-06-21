@@ -2,7 +2,7 @@ import { DbComputed } from "../../files/MetaInfo";
 import { DbCol, DbKey, DbRow, DbUnique, FK, FkType,DbUniqueQueryable, DbKeyQueryable, Fetchable } from "../../index";
 import { DbTable } from "./DbTable";
 import { Owner } from "./Owner";
-import { MPType } from 'msgpackstream';
+import { MPType } from '@gymcore/msgpackstream';
 
 @MPType
 export class SubCompanyData {
