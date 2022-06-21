@@ -37,7 +37,7 @@ test("Create new DB entry", async () => {
     c.address = 'Nullstr 5';
     c.value = 42;
     c.volatileProp = "test";
-    console.log(c.companyNameComputed);
+    //console.log(c.companyNameComputed);
     expect(await c.save()).toBe(true);
 
     const b = Company.new();
@@ -389,5 +389,5 @@ test('don\'t update ID in import', async() => {
     const c = Company.new();
     const id = c.ID;
     c.import({ID: 'bla'})
-    expect(c.ID).not.toBe(id);
+    expect(c.ID).toBe(id);
 })

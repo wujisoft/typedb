@@ -150,7 +150,7 @@ export abstract class ADbTableBase {
     import<T extends ADbTableBase>(this: T | RowSet<T>, values: Partial<T>, keys?: OwnProperties<T>[], save?: false): T;
     import<T extends ADbTableBase>(this: T | RowSet<T>, values: Partial<T>, keys?: OwnProperties<T>[], save?: true): Promise<boolean>;
     import<T extends ADbTableBase>(this: T | RowSet<T>, values: Partial<T>, keys?: OwnProperties<T>[], save = false): T | Promise<boolean> {
-        (keys ?? <(keyof T)[]>Object.keys(values).filter(v => v !== (<any>this).__PK)).forEach((k) => {
+        (keys ?? <(keyof T)[]>Object.keys(values).filter(v => v !== (<any>this.constructor).__PK)).forEach((k) => {
             if(values[k] !== undefined)
                 // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
                 this[k] = values[k]!;
