@@ -84,7 +84,9 @@ export class DbUniqueQueryable<TTable extends ADbTableBase, TColumn> extends DbQ
         this.archivemode = false;
         const table = this.tableName;
         const sub = this.subtable;
-        const query = Promise.resolve(search).then((search) =>
+        const query = Promise.resolve(search)
+        .then(search => search ?? [])
+        .then((search) =>
             db.getUnique(table, this.prop, [search].flat(1).map(x => (<any>x).toString()))
         )
         .then(x => x.filter((v,i,a) => v !== undefined && (a.indexOf(v) === i)))
@@ -139,7 +141,7 @@ export class DbPKQueryable<TTable extends ADbTableBase, TColumn> extends DbQuery
         const table = this.tableName;
         const sub = this.subtable;
         this.archivemode = false;
-        const query = Promise.resolve(search).then(search => db.get(table, (<any[]>search).filter(x => x).filter((v,i,a) => (a.indexOf(v) === i)).map((x:any) => (<any>x).toString())));
+        const query = Promise.resolve(search).then(search => search ?? []).then(search => db.get(table, (<any[]>search).filter(x => x).filter((v,i,a) => (a.indexOf(v) === i)).map((x:any) => (<any>x).toString())));
         return (<any>this.cls).__makeDbRowSet(query, archive, undefined, sub);
     }
 }

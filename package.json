@@ -4,7 +4,7 @@
     "access": "public",
     "registry": "http://git01.ad.gymcore.ag/npm/"
   },
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "",
   "main": "dist/typedb.js",
   "types": "dist/typedb.d.ts",

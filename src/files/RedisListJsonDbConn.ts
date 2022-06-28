@@ -21,6 +21,8 @@ export class RedisListJsonDbConn extends RedisJsonDbConn {
 
     async get(table: string, ids: string[]): Promise<any[]> {
         const prefix = this.prefix();
+        if(ids === undefined || ids === null)
+            ids = [];
         const data = await Promise.all(
             ids.map(id =>
                 this.readRedis.lRange(prefix + this.TABLE_PREFIX + table, +id, +id)

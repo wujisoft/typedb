@@ -18,6 +18,8 @@ export class RedisJsonDbConn implements IDbConn {
     async get(table: string, ids: string[]): Promise<any[]>
     {
         const prefix = this.prefix();
+        if(ids === undefined || ids === null)
+            ids = [];
         ids = ids.filter((y) => y);
         if(!ids || ids.length < 1)
             return [];
